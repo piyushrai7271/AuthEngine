@@ -12,18 +12,17 @@ const providerSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const userSchema = new mongoose.Schema(
   {
-    // 🔹 Basic Info
+    // Basic Info
     fullName: {
       type: String,
       required: true,
       trim: true,
     },
-
     email: {
       type: String,
       required: true,
@@ -31,18 +30,20 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-
     mobileNumber: {
       type: String,
       trim: true,
     },
-
     avatar: {
-      url: { type: String, default: "" },
-      public_id: { type: String, default: "" },
+      url: { 
+        type: String,
+        default: "" 
+      },
+      public_id: { 
+        type: String, 
+        default: "" 
+      },
     },
-
-    // 🔐 Authentication
     password: {
       type: String,
       select: false,
@@ -72,7 +73,7 @@ const userSchema = new mongoose.Schema(
     lastLogin: Date,
     passwordChangedAt: Date,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // Indexes
@@ -87,4 +88,5 @@ userSchema.pre("save", function (next) {
   next();
 });
 
-export default mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+export default User;

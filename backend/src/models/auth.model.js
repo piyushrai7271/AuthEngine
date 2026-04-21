@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 const providerSchema = new mongoose.Schema(
   {
@@ -12,38 +14,32 @@ const providerSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { _id: false },
+  { _id: false }
 );
 
 const userSchema = new mongoose.Schema(
   {
-    // Basic Info
     fullName: {
       type: String,
       required: true,
       trim: true,
     },
+
     email: {
       type: String,
-      required: true,
       unique: true,
+      sparse: true,
       lowercase: true,
       trim: true,
     },
+
     mobileNumber: {
       type: String,
+      unique: true,
+      sparse: true,
       trim: true,
     },
-    avatar: {
-      url: { 
-        type: String,
-        default: "" 
-      },
-      public_id: { 
-        type: String, 
-        default: "" 
-      },
-    },
+
     password: {
       type: String,
       select: false,
@@ -51,7 +47,6 @@ const userSchema = new mongoose.Schema(
 
     providers: [providerSchema],
 
-    // 🛡️ Account Status
     isVerified: {
       type: Boolean,
       default: false,
@@ -62,31 +57,68 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
-    // 👤 Role (RBAC)
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
 
-    // 🔐 Security
     lastLogin: Date,
     passwordChangedAt: Date,
+
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: Date,
   },
-  { timestamps: true },
+  { timestamps: true }
 );
 
 // Indexes
 userSchema.index({ email: 1 });
 userSchema.index({ mobileNumber: 1 });
+userSchema.index({ "providers.providerId": 1 });
 
-// Ensure at least one provider
-userSchema.pre("save", function (next) {
-  if (!this.providers || this.providers.length === 0) {
-    this.providers = [{ provider: "local" }];
+// Hash password
+userSchema.pre("save", async function () {
+  if (this.isModified("password") && this.password) {
+    this.password = await bcrypt.hash(this.password, 10);
   }
-  next();
 });
+
+// Compare password
+userSchema.methods.isPasswordCorrect = async function (inPassword) {
+  return await bcrypt.compare(inPassword.toString(), this.password);
+};
+
+// Access Token
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+      role: this.role,
+      email: this.email || undefined, // optional
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+    }
+  );
+};
+
+// Refresh Token
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+    },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+    }
+  );
+};
 
 const User = mongoose.model("User", userSchema);
 export default User;

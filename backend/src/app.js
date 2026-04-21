@@ -14,13 +14,13 @@ import userRoutes from "./routes/auth.routes.js";
 app.use("/api/auth", userRoutes);
 
 
-// // ❗ 404 handler
-// app.use("*", (req, res) => {
-//   res.status(404).json({
-//     success: false,
-//     message: "Route not found",
-//   });
-// });
+// ❗ 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
 
 // ❗ error middleware (LAST)
 app.use(errorMiddleware);

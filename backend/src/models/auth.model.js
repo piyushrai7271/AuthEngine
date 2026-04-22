@@ -14,11 +14,12 @@ const providerSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const userSchema = new mongoose.Schema(
   {
+    // Basic Info
     fullName: {
       type: String,
       required: true,
@@ -47,6 +48,7 @@ const userSchema = new mongoose.Schema(
 
     providers: [providerSchema],
 
+    // Account status
     isVerified: {
       type: Boolean,
       default: false,
@@ -57,57 +59,46 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // RBAC
     role: {
       type: String,
       enum: ["user", "admin"],
       default: "user",
     },
-
-    lastLogin: Date,
-    passwordChangedAt: Date,
-
-    loginAttempts: {
-      type: Number,
-      default: 0,
-    },
-    lockUntil: Date,
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-// Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ mobileNumber: 1 });
+// indexes
 userSchema.index({ "providers.providerId": 1 });
 
-// Hash password
+// hash password
 userSchema.pre("save", async function () {
   if (this.isModified("password") && this.password) {
     this.password = await bcrypt.hash(this.password, 10);
   }
 });
 
-// Compare password
-userSchema.methods.isPasswordCorrect = async function (inPassword) {
-  return await bcrypt.compare(inPassword.toString(), this.password);
+// compare password
+userSchema.methods.isPasswordCorrect = async function (inputPassword) {
+  return await bcrypt.compare(inputPassword.toString(), this.password);
 };
 
-// Access Token
+// access token
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
       _id: this._id,
       role: this.role,
-      email: this.email || undefined, // optional
     },
     process.env.ACCESS_TOKEN_SECRET,
     {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
-    }
+    },
   );
 };
 
-// Refresh Token
+// refresh token
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
@@ -116,8 +107,15 @@ userSchema.methods.generateRefreshToken = function () {
     process.env.REFRESH_TOKEN_SECRET,
     {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
-    }
+    },
   );
+};
+
+// otp token
+userSchema.methods.generateOtpToken = function () {
+  return jwt.sign({ _id: this._id }, process.env.OTP_TOKEN_SECRET, {
+    expiresIn: process.env.OTP_TOKEN_EXPIRY,
+  });
 };
 
 const User = mongoose.model("User", userSchema);

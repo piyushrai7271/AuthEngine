@@ -3,26 +3,13 @@ import Session from "../models/session.model.js";
 import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import ms from "ms";
+import { generateAccessAndRefreshToken } from "../services/token.service.js";
 import {
   getAccessTokenOptions,
   getRefreshTokenOptions,
 } from "../utils/cookieOptions.js";
 
-const generateAccessAndRefreshToken = async (user, req) => {
-  const accessToken = user.generateAccessToken();
-  const refreshToken = user.generateRefreshToken();
 
-  await Session.create({
-    user: user._id,
-    refreshToken,
-    userAgent: req.headers["user-agent"],
-    ipAddress: req.ip,
-    expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRY)),
-  });
-
-  return { accessToken, refreshToken };
-};
 const register = asyncHandler(async (req, res) => {
   const { fullName, email, mobileNumber, password } = req.body;
 
@@ -67,6 +54,7 @@ const register = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, "User created successfully"));
 });
 const loginWithPassword = asyncHandler(async (req, res) => {
+  // input from body
   const { email, password } = req.body;
 
   // validation

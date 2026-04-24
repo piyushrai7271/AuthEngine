@@ -112,10 +112,32 @@ userSchema.methods.generateRefreshToken = function () {
 };
 
 // otp token
-userSchema.methods.generateOtpToken = function () {
-  return jwt.sign({ _id: this._id }, process.env.OTP_TOKEN_SECRET, {
-    expiresIn: process.env.OTP_TOKEN_EXPIRY,
-  });
+userSchema.methods.generateOtpToken = function (identifier, purpose) {
+  return jwt.sign(
+    {
+      _id: this._id,
+      identifier,
+      purpose, //
+    },
+    process.env.OTP_TOKEN_SECRET,
+    {
+      expiresIn: process.env.OTP_TOKEN_EXPIRY,
+    }
+  );
+};
+
+// reset token
+userSchema.methods.generateResetToken = function () {
+  return jwt.sign(
+    {
+      _id: this._id,
+      purpose: "password_reset",
+    },
+    process.env.RESET_TOKEN_SECRET,
+    {
+      expiresIn: process.env.RESET_TOKEN_EXPIRY,
+    }
+  );
 };
 
 const User = mongoose.model("User", userSchema);

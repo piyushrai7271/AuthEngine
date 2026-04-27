@@ -18,7 +18,10 @@ import {
   // Password reset
   forgotPassword,
   verifyResetOtp,
-  resetPassword
+  resetPassword,
+
+  // get api
+  getCurrentUser
 
 } from "../controllers/auth.controller.js";
 
@@ -44,5 +47,9 @@ router.post("/login/otp/resend", otpAuth, resendOtp);
 router.post("/password/forgot", forgotPassword);
 router.post("/password/verify-otp", otpAuth, verifyResetOtp);
 router.post("/password/reset", resetAuth, resetPassword);
+
+// get apis....
+router.get("/me",jwtAuth,getCurrentUser);
+
 
 export default router;

@@ -67,12 +67,14 @@ const loginWithPassword = asyncHandler(async (req, res) => {
   const normalizedEmail = email.toLowerCase();
 
   // find user
-  const user = await User.findOne({ email: normalizedEmail }).select(
-    "+password",
-  );
+  const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
   if (!user) {
     throw new ApiError(404, "User not found, please register first");
+  }
+
+  if (user.isBlocked) {
+    throw new ApiError(403, "Account is blocked");
   }
 
   // check if password login allowed
@@ -87,20 +89,55 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid password");
   }
 
-  // generate tokens + session
+  // 🔐 ADMIN → require OTP (2FA)
+  if (user.role === "admin") {
+    // invalidate old OTPs
+    await OTP.updateMany(
+      { identifier: user.email, purpose: "login", isUsed: false },
+      { isUsed: true }
+    );
+
+    // send OTP
+    await sendOtp({
+      identifier: user.email,
+      purpose: "login",
+    });
+
+    // generate otpToken
+    const otpToken = user.generateOtpToken(user.email, "login");
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        { otpToken },
+        "OTP required for admin login"
+      )
+    );
+  }
+
+  // ✅ NORMAL USER → direct login
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user,
-    req,
+    req
   );
-
-  // safe user
-  const safeUser = await User.findById(user._id).select("-password");
 
   return res
     .status(200)
     .cookie("accessToken", accessToken, getAccessTokenOptions())
     .cookie("refreshToken", refreshToken, getRefreshTokenOptions())
-    .json(new ApiResponse(200, safeUser, "User logged in successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        {
+          _id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          mobileNumber: user.mobileNumber,
+          role: user.role,
+        },
+        "User logged in successfully"
+      )
+    );
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
@@ -549,6 +586,30 @@ const resetPassword = asyncHandler(async (req, res) => {
     );
 });
 
+// get api..
+const getCurrentUser = asyncHandler(async (req, res) => {
+  // req.user is already set by jwtAuth middleware
+  const user = req.user;
+
+  if (!user) {
+    throw new ApiError(401, "Unauthorized");
+  }
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        mobileNumber: user.mobileNumber,
+        role: user.role,
+      },
+      "User fetched successfully !!"
+    )
+  );
+});
+
 
 export {
   register,
@@ -562,5 +623,6 @@ export {
   resendOtp,
   forgotPassword,
   verifyResetOtp,
-  resetPassword
+  resetPassword,
+  getCurrentUser
 };

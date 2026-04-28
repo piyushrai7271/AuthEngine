@@ -17,6 +17,7 @@ const AuthProvider = ({ children }) => {
       return res.data.data;
     } catch (err) {
       setUser(null);
+      console.error(err);
       return null;
     } finally {
       setLoading(false);

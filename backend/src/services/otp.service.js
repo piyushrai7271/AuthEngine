@@ -1,5 +1,5 @@
 import OTP from "../models/otp.model.js";
-import sendEmail from "./email.service.js";
+import {sendEmail} from "./email.service.js";
 import sendSms from "./sms.service.js";
 import bcrypt from "bcrypt";
 

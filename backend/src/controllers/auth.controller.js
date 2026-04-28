@@ -5,6 +5,7 @@ import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendOtp, verifyOtp } from "../services/otp.service.js";
+import {sendSecurityAlert} from "../services/email.service.js";
 import { generateAccessAndRefreshToken } from "../services/token.service.js";
 import {
   getAccessTokenOptions,
@@ -328,7 +329,7 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
       purpose: "login",
     });
 
-    // generate otpToken (WITH purpose)
+    // generate otpToken
     const otpToken = user.generateOtpToken(identifier, "login");
 
     return res.status(200).json(
@@ -350,6 +351,7 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
   );
 });
 const verifyOtpAndLogin = asyncHandler(async (req, res) => {
+  
   const { otp } = req.body;
   const { _id, identifier, purpose } = req.otpData;
 
@@ -361,7 +363,7 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid OTP purpose");
   }
 
-  // ✅ verify OTP
+  // ✅ verify OTP first
   await verifyOtp({
     identifier,
     otp,
@@ -378,6 +380,15 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Account is blocked");
   }
 
+  // 🔐 🚨 IMPORTANT: BLOCK ADMIN OTP LOGIN
+  if (user.role === "admin") {
+    throw new ApiError(
+      403,
+      "Admins must login using email/password + OTP (2FA required)"
+    );
+  }
+
+  // ✅ Normal user → allow login
   const { accessToken, refreshToken } =
     await generateAccessAndRefreshToken(user, req);
 
@@ -393,6 +404,7 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
           fullName: user.fullName,
           email: user.email,
           mobileNumber: user.mobileNumber,
+          role: user.role,
         },
         "Login successful"
       )
@@ -406,18 +418,23 @@ const resendOtp = asyncHandler(async (req, res) => {
   }
 
   if (purpose !== "login") {
-  throw new ApiError(400, "Invalid OTP purpose");
+    throw new ApiError(400, "Invalid OTP purpose");
   }
 
   const user = await User.findById(_id);
+
   if (!user) {
     throw new ApiError(404, "User not found");
+  }
+
+  if (user.isBlocked) {
+    throw new ApiError(403, "Account is blocked");
   }
 
   // invalidate old OTPs
   await OTP.updateMany(
     { identifier, purpose: "login", isUsed: false },
-    { isUsed: true },
+    { isUsed: true }
   );
 
   await sendOtp({
@@ -427,15 +444,13 @@ const resendOtp = asyncHandler(async (req, res) => {
 
   const newOtpToken = user.generateOtpToken(identifier, "login");
 
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { otpToken: newOtpToken },
-        "OTP resent successfully",
-      ),
-    );
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { otpToken: newOtpToken },
+      "OTP resent successfully"
+    )
+  );
 });
 
 // forgot password flow
@@ -528,13 +543,9 @@ const verifyResetOtp = asyncHandler(async (req, res) => {
   );
 });
 const resetPassword = asyncHandler(async (req, res) => {
-  // 1. take input
   const { newPassword, confirmPassword } = req.body;
-
-  // 2. get user from resetAuth middleware
   const { _id } = req.resetData;
 
-  // 3. validate input
   if (!newPassword || !confirmPassword) {
     throw new ApiError(400, "Please provide all fields");
   }
@@ -543,29 +554,33 @@ const resetPassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Passwords do not match");
   }
 
-  // ❗ prevent same password reuse
-  // (optional but good practice)
+  // get user
   const user = await User.findById(_id).select("+password");
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
+  // prevent reuse
   const isSamePassword = await user.isPasswordCorrect(newPassword);
   if (isSamePassword) {
     throw new ApiError(400, "New password cannot be same as old password");
   }
 
-  // 4. update password (auto hashed via pre-save hook)
+  // update password
   user.password = newPassword;
   await user.save();
 
-  // 5. 🔥 invalidate ALL sessions (very important)
+  // 🔥 invalidate all sessions
   await Session.updateMany(
     { user: user._id },
     { isValid: false }
   );
 
-  // 6. clear resetToken cookie (if using cookies)
+  // ✅ NEW: send alert if admin
+  if (user.role === "admin" && user.email) {
+    await sendSecurityAlert(user.email);
+  }
+
   const isProduction = process.env.NODE_ENV === "production";
 
   const cookieOptions = {

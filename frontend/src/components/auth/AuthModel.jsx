@@ -3,20 +3,21 @@ import RegisterForm from "./RegisterForm";
 
 const AuthModal = ({ mode, setMode, onClose }) => {
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center">
-      <div className="bg-[#1f2937] p-6 rounded w-96 relative">
-
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
+      <div className="bg-[#1f2937] w-full max-w-md rounded-2xl p-6 relative">
+        {/* CLOSE */}
         <button
-          className="absolute top-2 right-3"
           onClick={onClose}
+          className="absolute top-3 right-4 text-gray-400 text-xl"
         >
           ✕
         </button>
 
+        {/* SWITCH */}
         {mode === "login" ? (
-          <LoginForm switchMode={() => setMode("register")} />
+          <LoginForm switchToRegister={() => setMode("register")} />
         ) : (
-          <RegisterForm switchMode={() => setMode("login")} />
+          <RegisterForm switchToLogin={() => setMode("login")} />
         )}
       </div>
     </div>

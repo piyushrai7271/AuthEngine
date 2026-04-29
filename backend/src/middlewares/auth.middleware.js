@@ -1,6 +1,6 @@
 import User from "../models/auth.model.js";
 import jwt from "jsonwebtoken";
-import ApiError from "../utils/apiError.js";
+
 
 const jwtAuth = async (req, res, next) => {
   try {
@@ -9,22 +9,28 @@ const jwtAuth = async (req, res, next) => {
       req.header("Authorization")?.replace("Bearer ", "");
 
     if (!token) {
-      throw new ApiError(401, "Unauthorized access");
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized",
+      });
     }
 
-    const decodedToken = jwt.verify(
-      token,
-      process.env.ACCESS_TOKEN_SECRET
-    );
+    const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     if (!decodedToken?._id) {
-      throw new ApiError(401, "Invalid access token");
+      return res.status(401).json({
+        success: false,
+        message: "Invalid access token",
+      });
     }
 
     const user = await User.findById(decodedToken._id).select("-password");
 
     if (!user) {
-      throw new ApiError(401, "User not found");
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
+      });
     }
 
     req.user = user;

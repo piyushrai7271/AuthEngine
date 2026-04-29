@@ -5,7 +5,7 @@ import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { sendOtp, verifyOtp } from "../services/otp.service.js";
-import {sendSecurityAlert} from "../services/email.service.js";
+import { sendSecurityAlert } from "../services/email.service.js";
 import { generateAccessAndRefreshToken } from "../services/token.service.js";
 import {
   getAccessTokenOptions,
@@ -68,7 +68,9 @@ const loginWithPassword = asyncHandler(async (req, res) => {
   const normalizedEmail = email.toLowerCase();
 
   // find user
-  const user = await User.findOne({ email: normalizedEmail }).select("+password");
+  const user = await User.findOne({ email: normalizedEmail }).select(
+    "+password",
+  );
 
   if (!user) {
     throw new ApiError(404, "User not found, please register first");
@@ -95,7 +97,7 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     // invalidate old OTPs
     await OTP.updateMany(
       { identifier: user.email, purpose: "login", isUsed: false },
-      { isUsed: true }
+      { isUsed: true },
     );
 
     // send OTP
@@ -107,19 +109,15 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     // generate otpToken
     const otpToken = user.generateOtpToken(user.email, "login");
 
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        { otpToken },
-        "OTP required for admin login"
-      )
-    );
+    return res
+      .status(200)
+      .json(new ApiResponse(200, { otpToken }, "OTP required for admin login"));
   }
 
   // ✅ NORMAL USER → direct login
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user,
-    req
+    req,
   );
 
   return res
@@ -136,8 +134,8 @@ const loginWithPassword = asyncHandler(async (req, res) => {
           mobileNumber: user.mobileNumber,
           role: user.role,
         },
-        "User logged in successfully"
-      )
+        "User logged in successfully",
+      ),
     );
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
@@ -320,7 +318,7 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
     // invalidate old OTPs
     await OTP.updateMany(
       { identifier, purpose: "login", isUsed: false },
-      { isUsed: true }
+      { isUsed: true },
     );
 
     // send OTP
@@ -332,26 +330,17 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
     // generate otpToken
     const otpToken = user.generateOtpToken(identifier, "login");
 
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        { otpToken },
-        "OTP sent if account exists"
-      )
-    );
+    return res
+      .status(200)
+      .json(new ApiResponse(200, { otpToken }, "OTP sent if account exists"));
   }
 
   // 4. user not found → SAME RESPONSE (security)
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {},
-      "OTP sent if account exists"
-    )
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "OTP sent if account exists"));
 });
 const verifyOtpAndLogin = asyncHandler(async (req, res) => {
-  
   const { otp } = req.body;
   const { _id, identifier, purpose } = req.otpData;
 
@@ -384,13 +373,15 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
   if (user.role === "admin") {
     throw new ApiError(
       403,
-      "Admins must login using email/password + OTP (2FA required)"
+      "Admins must login using email/password + OTP (2FA required)",
     );
   }
 
   // ✅ Normal user → allow login
-  const { accessToken, refreshToken } =
-    await generateAccessAndRefreshToken(user, req);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+    user,
+    req,
+  );
 
   return res
     .status(200)
@@ -406,8 +397,8 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
           mobileNumber: user.mobileNumber,
           role: user.role,
         },
-        "Login successful"
-      )
+        "Login successful",
+      ),
     );
 });
 const resendOtp = asyncHandler(async (req, res) => {
@@ -434,7 +425,7 @@ const resendOtp = asyncHandler(async (req, res) => {
   // invalidate old OTPs
   await OTP.updateMany(
     { identifier, purpose: "login", isUsed: false },
-    { isUsed: true }
+    { isUsed: true },
   );
 
   await sendOtp({
@@ -444,13 +435,15 @@ const resendOtp = asyncHandler(async (req, res) => {
 
   const newOtpToken = user.generateOtpToken(identifier, "login");
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      { otpToken: newOtpToken },
-      "OTP resent successfully"
-    )
-  );
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { otpToken: newOtpToken },
+        "OTP resent successfully",
+      ),
+    );
 });
 
 // forgot password flow
@@ -476,6 +469,11 @@ const forgotPassword = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(200, {}, "If account exists, OTP sent successfully"),
       );
+  }
+  
+  // block if admin is resetting password ❗ (LATER WE WILL HANDLE MORE ADVANCE WAY)
+  if (user.role === "admin") {
+    throw new ApiError(403, "Admins must contact support to reset password");
   }
 
   // 3. Send OTP (purpose: reset_password)
@@ -534,13 +532,9 @@ const verifyResetOtp = asyncHandler(async (req, res) => {
   // ✅ use model method (GOOD you added this)
   const resetToken = user.generateResetToken();
 
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      { resetToken },
-      "OTP verified successfully"
-    )
-  );
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { resetToken }, "OTP verified successfully"));
 });
 const resetPassword = asyncHandler(async (req, res) => {
   const { newPassword, confirmPassword } = req.body;
@@ -571,10 +565,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   await user.save();
 
   // 🔥 invalidate all sessions
-  await Session.updateMany(
-    { user: user._id },
-    { isValid: false }
-  );
+  await Session.updateMany({ user: user._id }, { isValid: false });
 
   // ✅ NEW: send alert if admin
   if (user.role === "admin" && user.email) {
@@ -592,13 +583,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .clearCookie("resetToken", cookieOptions)
-    .json(
-      new ApiResponse(
-        200,
-        {},
-        "Password reset successfully"
-      )
-    );
+    .json(new ApiResponse(200, {}, "Password reset successfully"));
 });
 
 // get api..
@@ -620,11 +605,10 @@ const getCurrentUser = asyncHandler(async (req, res) => {
         mobileNumber: user.mobileNumber,
         role: user.role,
       },
-      "User fetched successfully !!"
-    )
+      "User fetched successfully !!",
+    ),
   );
 });
-
 
 export {
   register,
@@ -639,5 +623,5 @@ export {
   forgotPassword,
   verifyResetOtp,
   resetPassword,
-  getCurrentUser
+  getCurrentUser,
 };

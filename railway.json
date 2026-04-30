@@ -1,5 +1,5 @@
 {
   "deploy": {
-    "startCommand": "cd backend && npm install && npm start"
+    "startCommand": "npm install && npm start"
   }
 }

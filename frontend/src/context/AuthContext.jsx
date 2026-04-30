@@ -6,41 +6,45 @@ const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); // 🔥 important
   const [otpToken, setOtpToken] = useState(null);
 
-  // 🔍 get current user (cookie-based session)
+  // 🔍 FETCH CURRENT USER (used everywhere)
   const fetchCurrentUser = async () => {
     try {
       const res = await api.get("/api/auth/me");
-      setUser(res.data.data);
-      return res.data.data;
+      const currentUser = res.data.data;
+
+      setUser(currentUser);
+      return currentUser;
     } catch (err) {
       setUser(null);
-      console.error(err);
       return null;
-    } finally {
-      setLoading(false);
     }
   };
 
+  // 🚀 INITIAL AUTH HYDRATION
   useEffect(() => {
-    fetchCurrentUser();
+    const initAuth = async () => {
+      await fetchCurrentUser(); // interceptor handles refresh
+      setLoading(false); // ✅ only after attempt
+    };
+
+    initAuth();
   }, []);
 
-  // 🔐 LOGIN (fixed)
+  // 🔐 LOGIN
   const login = async (data) => {
     const res = await loginUser(data);
-
     const responseData = res?.data?.data;
 
-    // 🔐 OTP required (admin / otp login)
+    // 🔐 OTP required
     if (responseData?.otpToken) {
       setOtpToken(responseData.otpToken);
       return { otpRequired: true };
     }
 
-    // ✅ Normal login → fetch user
+    // ✅ normal login
     const currentUser = await fetchCurrentUser();
 
     return {
@@ -51,14 +55,16 @@ const AuthProvider = ({ children }) => {
 
   // 📝 REGISTER
   const register = async (data) => {
-    const res = await registerUser(data);
-    return res;
+    return await registerUser(data);
   };
 
   // 🚪 LOGOUT
   const logout = async () => {
-    await logoutUser();
-    setUser(null);
+    try {
+      await logoutUser();
+    } finally {
+      setUser(null);
+    }
   };
 
   return (
@@ -72,8 +78,10 @@ const AuthProvider = ({ children }) => {
         logout,
         setUser,
         setOtpToken,
+        fetchCurrentUser, // 🔥 useful for future
       }}
     >
+      {/* 🔥 prevent UI flicker */}
       {children}
     </AuthContext.Provider>
   );

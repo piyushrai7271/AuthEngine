@@ -139,64 +139,67 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     );
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
+  // ✅ SAFE ACCESS (no crash)
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body.refreshToken;
+    req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!incomingRefreshToken) {
-    throw new ApiError(401, "Unauthorized access");
+    return res.status(401).json({
+      success: false,
+      message: "Not authenticated",
+    });
   }
 
-  // verify JWT
-  const decodedToken = jwt.verify(
-    incomingRefreshToken,
-    process.env.REFRESH_TOKEN_SECRET,
-  );
+  let decodedToken;
+
+  try {
+    decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET,
+    );
+  } catch (err) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
 
   if (!decodedToken?._id) {
-    throw new ApiError(401, "Invalid refresh token");
+    throw new ApiError(401, "Invalid refresh token payload");
   }
 
-  // find session
   const session = await Session.findOne({
     refreshToken: incomingRefreshToken,
     isValid: true,
   });
 
   if (!session) {
-    throw new ApiError(401, "Session expired or invalid");
+    throw new ApiError(401, "Session invalid");
   }
 
-  // check session expiry
   if (session.expiresAt < new Date()) {
     throw new ApiError(401, "Session expired");
   }
 
-  // match user with token
   if (session.user.toString() !== decodedToken._id.toString()) {
     throw new ApiError(401, "Token mismatch");
   }
 
-  // find user
   const user = await User.findById(session.user);
 
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  // generate new tokens (rotation)
+  // 🔁 rotate tokens
   const accessToken = user.generateAccessToken();
   const newRefreshToken = user.generateRefreshToken();
 
-  // update session
   session.refreshToken = newRefreshToken;
   await session.save();
 
-  // response
   return res
     .status(200)
     .cookie("accessToken", accessToken, getAccessTokenOptions())
     .cookie("refreshToken", newRefreshToken, getRefreshTokenOptions())
-    .json(new ApiResponse(200, {}, "Access token refreshed successfully"));
+    .json(new ApiResponse(200, {}, "Access token refreshed"));
 });
 const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword, confirmPassword } = req.body;
@@ -470,7 +473,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
         new ApiResponse(200, {}, "If account exists, OTP sent successfully"),
       );
   }
-  
+
   // block if admin is resetting password ❗ (LATER WE WILL HANDLE MORE ADVANCE WAY)
   if (user.role === "admin") {
     throw new ApiError(403, "Admins must contact support to reset password");

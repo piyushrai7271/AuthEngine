@@ -90,7 +90,7 @@ const PasswordForm = ({ setMode, switchToRegister }) => {
       </button>
 
       {/* REGISTER */}
-      <p className="mt-4 text-center text-gray-400 text-sm">
+      <p className="mt-4 text-center text-gray-400 text-sm hover:text-pink-400">
         New here?{" "}
         <span
           onClick={switchToRegister}

@@ -51,7 +51,7 @@ const LoginForm = ({ switchToRegister }) => {
         <>
           <div className="flex items-center my-4">
             <div className="flex-1 h-px bg-gray-600"></div>
-            <span className="px-2 text-sm text-gray-400">
+            <span className="px-3 text-sm text-gray-400">
               or continue with
             </span>
             <div className="flex-1 h-px bg-gray-600"></div>

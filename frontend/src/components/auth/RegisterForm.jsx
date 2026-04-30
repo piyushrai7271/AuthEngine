@@ -13,6 +13,7 @@ const RegisterForm = ({ switchToLogin }) => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -26,7 +27,7 @@ const RegisterForm = ({ switchToLogin }) => {
     // 🔴 frontend validation (match backend)
     if (!fullName || !password || (!email && !mobileNumber)) {
       return toast.error(
-        "Provide fullName, password and email or mobile number"
+        "Provide fullName, password and email or mobile number",
       );
     }
 
@@ -55,9 +56,7 @@ const RegisterForm = ({ switchToLogin }) => {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-center mb-4">
-        Create Account
-      </h2>
+      <h2 className="text-xl font-semibold text-center mb-4">Create Account</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
@@ -93,15 +92,24 @@ const RegisterForm = ({ switchToLogin }) => {
           className="w-full px-4 py-2 rounded-full bg-slate-700 text-white"
         />
 
-        <input
-          type="password"
-          name="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="w-full px-4 py-2 rounded-full bg-slate-700 text-white"
-          required
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            name="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handleChange}
+            className="w-full px-4 py-2 rounded-full bg-slate-700 text-white pr-10"
+            required
+          />
+
+          <span
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-2.5 cursor-pointer"
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </span>
+        </div>
 
         <button
           type="submit"
@@ -114,10 +122,7 @@ const RegisterForm = ({ switchToLogin }) => {
 
       <p className="text-center text-sm text-gray-400 mt-4">
         Already have an account?{" "}
-        <span
-          onClick={switchToLogin}
-          className="text-pink-400 cursor-pointer"
-        >
+        <span onClick={switchToLogin} className="text-pink-400 cursor-pointer">
           Log in
         </span>
       </p>

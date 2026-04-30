@@ -3,24 +3,13 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import api from "../../services/api";
 import { useAuth } from "../../hooks/useAuth";
+import ChangePasswordModal from "../../components/auth/ChangePasswordModal"; // ✅ reuse
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { user, setUser } = useAuth();
 
   const [showModal, setShowModal] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const [form, setForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
-  });
-
-  // 🔄 input handler
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   // 🚪 logout (current)
   const handleLogout = async () => {
@@ -43,28 +32,6 @@ const AdminDashboard = () => {
       navigate("/");
     } catch {
       toast.error("Logout all failed");
-    }
-  };
-
-  // 🔐 change password
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      await api.post("/api/auth/change-password", form);
-
-      toast.success("Password changed. Please login again");
-
-      setShowModal(false);
-      setUser(null);
-      navigate("/");
-    } catch (err) {
-      const message =
-        err?.response?.data?.message || "Failed to change password";
-      toast.error(message);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -113,65 +80,9 @@ const AdminDashboard = () => {
         </div>
       </main>
 
-      {/* 🔐 CHANGE PASSWORD MODAL */}
+      {/* ✅ REUSABLE MODAL */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
-          <div className="bg-[#111827] p-6 rounded-xl w-96 space-y-4">
-
-            <h2 className="text-lg font-semibold text-center">
-              Change Password
-            </h2>
-
-            <form onSubmit={handleChangePassword} className="space-y-3">
-
-              <input
-                type="password"
-                name="currentPassword"
-                placeholder="Current Password"
-                value={form.currentPassword}
-                onChange={handleChange}
-                className="w-full p-2 rounded bg-[#1f2937] outline-none"
-                required
-              />
-
-              <input
-                type="password"
-                name="newPassword"
-                placeholder="New Password"
-                value={form.newPassword}
-                onChange={handleChange}
-                className="w-full p-2 rounded bg-[#1f2937] outline-none"
-                required
-              />
-
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                className="w-full p-2 rounded bg-[#1f2937] outline-none"
-                required
-              />
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-pink-600 p-2 rounded"
-              >
-                {loading ? "Updating..." : "Update Password"}
-              </button>
-            </form>
-
-            <button
-              onClick={() => setShowModal(false)}
-              className="w-full text-sm text-gray-400"
-            >
-              Cancel
-            </button>
-
-          </div>
-        </div>
+        <ChangePasswordModal onClose={() => setShowModal(false)} />
       )}
     </div>
   );

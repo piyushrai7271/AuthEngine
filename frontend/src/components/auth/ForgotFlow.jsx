@@ -21,6 +21,10 @@ const ForgotFlow = ({ setMode }) => {
   const [timer, setTimer] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // 👁 visibility states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   // ⏱️ TIMER
   useEffect(() => {
     let interval;
@@ -108,6 +112,10 @@ const ForgotFlow = ({ setMode }) => {
       return toast.error("Enter all fields");
     }
 
+    if (form.password !== form.confirmPassword) {
+      return toast.error("Passwords do not match");
+    }
+
     setLoading(true);
 
     try {
@@ -139,6 +147,8 @@ const ForgotFlow = ({ setMode }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      
+      {/* STEP 1 */}
       {step === 1 && (
         <input
           type="text"
@@ -150,6 +160,7 @@ const ForgotFlow = ({ setMode }) => {
         />
       )}
 
+      {/* STEP 2 */}
       {step === 2 && (
         <>
           <OtpInput otp={otp} setOtp={setOtp} />
@@ -170,27 +181,48 @@ const ForgotFlow = ({ setMode }) => {
         </>
       )}
 
+      {/* STEP 3 */}
       {step === 3 && (
         <>
-          <input
-            type="password"
-            name="password"
-            placeholder="New Password"
-            value={form.password}
-            onChange={handleChange}
-            className="w-full px-4 py-2 rounded-full bg-slate-700 text-white"
-          />
-          <input
-            type="password"
-            name="confirmPassword"
-            placeholder="Confirm Password"
-            value={form.confirmPassword}
-            onChange={handleChange}
-            className="w-full px-4 py-2 rounded-full bg-slate-700 text-white"
-          />
+          {/* NEW PASSWORD */}
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              placeholder="New Password"
+              value={form.password}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-slate-700 text-white pr-10"
+            />
+            <span
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-2.5 cursor-pointer"
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </span>
+          </div>
+
+          {/* CONFIRM PASSWORD */}
+          <div className="relative">
+            <input
+              type={showConfirm ? "text" : "password"}
+              name="confirmPassword"
+              placeholder="Confirm Password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              className="w-full px-4 py-2 rounded-full bg-slate-700 text-white pr-10"
+            />
+            <span
+              onClick={() => setShowConfirm(!showConfirm)}
+              className="absolute right-3 top-2.5 cursor-pointer"
+            >
+              {showConfirm ? "🙈" : "👁️"}
+            </span>
+          </div>
         </>
       )}
 
+      {/* BUTTON */}
       <button
         type="submit"
         disabled={loading}
@@ -205,6 +237,7 @@ const ForgotFlow = ({ setMode }) => {
           : "Reset Password"}
       </button>
 
+      {/* BACK */}
       <p
         onClick={() => setMode("login")}
         className="text-sm text-gray-400 text-center cursor-pointer"

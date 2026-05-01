@@ -17,7 +17,7 @@ const otpSchema = new mongoose.Schema(
 
     purpose: {
       type: String,
-      enum: ["login", "verify_email", "reset_password"],
+      enum: ["login", "admin_2fa", "verify_email", "reset_password"],
       required: true,
     },
 
@@ -36,7 +36,7 @@ const otpSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // TTL index (auto delete expired OTPs)

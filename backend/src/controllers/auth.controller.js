@@ -96,18 +96,18 @@ const loginWithPassword = asyncHandler(async (req, res) => {
   if (user.role === "admin") {
     // invalidate old OTPs
     await OTP.updateMany(
-      { identifier: user.email, purpose: "login", isUsed: false },
+      { identifier: user.email, purpose: "admin_2fa", isUsed: false },
       { isUsed: true },
     );
 
     // send OTP
     await sendOtp({
       identifier: user.email,
-      purpose: "login",
+      purpose: "admin_2fa",
     });
 
     // generate otpToken
-    const otpToken = user.generateOtpToken(user.email, "login");
+    const otpToken = user.generateOtpToken(user.email, "admin_2fa");
 
     return res
       .status(200)
@@ -318,6 +318,11 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
       throw new ApiError(403, "Account is blocked");
     }
 
+    // 🚫 admins cannot use direct OTP login
+    if (user.role === "admin") {
+      throw new ApiError(403, "Admins must login using email/password + OTP");
+    }
+
     // invalidate old OTPs
     await OTP.updateMany(
       { identifier, purpose: "login", isUsed: false },
@@ -351,17 +356,19 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     throw new ApiError(400, "OTP is required");
   }
 
-  if (purpose !== "login") {
+  // ✅ only allowed purposes
+  if (!["login", "admin_2fa"].includes(purpose)) {
     throw new ApiError(400, "Invalid OTP purpose");
   }
 
-  // ✅ verify OTP first
+  // ✅ verify OTP
   await verifyOtp({
     identifier,
     otp,
-    purpose: "login",
+    purpose,
   });
 
+  // ✅ find user
   const user = await User.findById(_id);
 
   if (!user) {
@@ -372,15 +379,18 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Account is blocked");
   }
 
-  // 🔐 🚨 IMPORTANT: BLOCK ADMIN OTP LOGIN
-  if (user.role === "admin") {
+  // 🚫 BLOCK admin OTP-only login
+  if (user.role === "admin" && purpose === "login") {
     throw new ApiError(
       403,
-      "Admins must login using email/password + OTP (2FA required)",
+      "Admins must login using email/password or OAuth + OTP",
     );
   }
 
-  // ✅ Normal user → allow login
+  // ✅ ALLOW:
+  // 1. normal user login OTP
+  // 2. admin_2fa flow
+
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user,
     req,

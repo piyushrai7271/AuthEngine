@@ -1,5 +1,6 @@
 import axios from "axios";
 import querystring from "querystring";
+import OTP from "../models/otp.model.js";
 import { randomBytes } from "crypto";
 import ApiError from "../utils/apiError.js";
 import User from "../models/auth.model.js";
@@ -94,15 +95,9 @@ const googleAuthCallback = async (req, res, next) => {
       timeout: GOOGLE_CONFIG.timeout,
     });
 
-    const { 
-      id,
-      email, 
-      name, 
-      verified_email 
-    } = userInfoResponse.data;
+    const { id, email, name, verified_email } = userInfoResponse.data;
 
     const providerId = String(id);
-
 
     if (!email || !verified_email) {
       throw new ApiError(400, "Invalid Google account email");
@@ -149,18 +144,32 @@ const googleAuthCallback = async (req, res, next) => {
     }
 
     // ✅ 🔥 ADMIN 2FA CHECK
+    // ✅ ADMIN → OAuth + 2FA
     if (user.role === "admin") {
       const identifier = user.email;
+
+      // invalidate old OTPs
+      await OTP.updateMany(
+        {
+          identifier,
+          purpose: "admin_2fa",
+          isUsed: false,
+        },
+        {
+          isUsed: true,
+        },
+      );
 
       // send OTP
       await sendOtp({
         identifier,
-        purpose: "login",
+        purpose: "admin_2fa",
       });
 
-      const otpToken = user.generateOtpToken(identifier, "login");
+      // generate otp token
+      const otpToken = user.generateOtpToken(identifier, "admin_2fa");
 
-      // redirect to frontend OTP page
+      // redirect frontend to OTP page
       const redirectUrl = new URL(process.env.FRONTEND_SUCCESS_REDIRECT_URL);
       redirectUrl.pathname = "/otp";
       redirectUrl.searchParams.append("otpToken", otpToken);
@@ -339,17 +348,32 @@ const githubAuthCallback = async (req, res, next) => {
       }
     }
 
-    // ✅ 🔥 ADMIN 2FA CHECK (ADD THIS BLOCK HERE)
+    // ✅ ADMIN → OAuth + 2FA
     if (user.role === "admin") {
       const identifier = user.email;
 
+      // invalidate previous OTPs
+      await OTP.updateMany(
+        {
+          identifier,
+          purpose: "admin_2fa",
+          isUsed: false,
+        },
+        {
+          isUsed: true,
+        },
+      );
+
+      // send OTP
       await sendOtp({
         identifier,
-        purpose: "login",
+        purpose: "admin_2fa",
       });
 
-      const otpToken = user.generateOtpToken(identifier, "login");
+      // generate otp token
+      const otpToken = user.generateOtpToken(identifier, "admin_2fa");
 
+      // redirect frontend
       const redirectUrl = new URL(process.env.FRONTEND_SUCCESS_REDIRECT_URL);
       redirectUrl.pathname = "/otp";
       redirectUrl.searchParams.append("otpToken", otpToken);
@@ -357,7 +381,6 @@ const githubAuthCallback = async (req, res, next) => {
 
       return res.redirect(redirectUrl.toString());
     }
-
     // 6️⃣ Generate tokens + session
     const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
       user,

@@ -6,26 +6,26 @@ import OtpFlow from "../components/auth/OtpFlow";
 const OtpPage = () => {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { setOtpToken } = useAuth();
+
+  const { otpToken, setOtpToken } = useAuth();
 
   useEffect(() => {
-    const token = params.get("otpToken");
+    const queryToken = params.get("otpToken");
     const type = params.get("type");
 
-    // ❌ no token → invalid access
-    if (!token) {
+    // ✅ OAuth flow → token comes from URL
+    if (queryToken) {
+      setOtpToken(queryToken);
+    }
+
+    // ❌ no token anywhere
+    if (!queryToken && !otpToken) {
       navigate("/");
       return;
     }
 
-    // ✅ store token in context
-    setOtpToken(token);
-
-    // optional: validate type
-    if (type !== "oauth") {
-      console.warn("Non-oauth OTP flow");
-    }
-  }, [params, setOtpToken, navigate]);
+    console.log("OTP Flow Type:", type);
+  }, [params, otpToken, setOtpToken, navigate]);
 
   return (
     <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center text-white">
@@ -34,7 +34,6 @@ const OtpPage = () => {
           Verify OTP
         </h2>
 
-        {/* 🔥 reuse existing OTP flow */}
         <OtpFlow />
       </div>
     </div>

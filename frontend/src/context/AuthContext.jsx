@@ -64,6 +64,7 @@ const AuthProvider = ({ children }) => {
       await logoutUser();
     } finally {
       setUser(null);
+      setOtpToken(null);
     }
   };
 

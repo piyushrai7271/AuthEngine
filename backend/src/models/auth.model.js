@@ -71,6 +71,7 @@ const userSchema = new mongoose.Schema(
 
 // indexes
 userSchema.index({ "providers.providerId": 1 });
+userSchema.index({ "providers.provider": 1, "providers.providerId": 1 });
 
 // hash password
 userSchema.pre("save", async function () {

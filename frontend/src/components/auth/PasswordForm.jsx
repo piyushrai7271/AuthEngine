@@ -22,21 +22,34 @@ const PasswordForm = ({ setMode, switchToRegister }) => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    if (loading) return;
+
     setLoading(true);
 
     try {
       const res = await login(form);
 
+      // 🔐 ADMIN 2FA REQUIRED
       if (res?.otpRequired) {
-        toast.success("OTP sent");
+        toast.success("OTP sent successfully");
+
+        // ✅ move to shared OTP page
+        navigate("/otp?type=admin_2fa");
+
         return;
       }
 
+      // ✅ NORMAL LOGIN
       toast.success("Login successful");
 
       navigate(res.user?.role === "admin" ? "/admin" : "/dashboard");
     } catch (err) {
-      toast.error(err.message);
+      toast.error(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Login failed"
+      );
     } finally {
       setLoading(false);
     }
@@ -64,6 +77,7 @@ const PasswordForm = ({ setMode, switchToRegister }) => {
           className="w-full px-4 py-2 rounded-full bg-slate-700 text-white pr-10"
           required
         />
+
         <span
           onClick={() => setShowPassword(!showPassword)}
           className="absolute right-3 top-2.5 cursor-pointer"
@@ -84,7 +98,7 @@ const PasswordForm = ({ setMode, switchToRegister }) => {
       <button
         type="submit"
         disabled={loading}
-        className="w-full py-2 rounded-full bg-pink-600"
+        className="w-full py-2 rounded-full bg-pink-600 disabled:opacity-50"
       >
         {loading ? "Processing..." : "Log In"}
       </button>

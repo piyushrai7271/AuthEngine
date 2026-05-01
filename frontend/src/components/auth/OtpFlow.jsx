@@ -18,9 +18,14 @@ const OtpFlow = () => {
 
   // ✅ 🔥 HANDLE OAUTH FLOW (skip step 1)
   useEffect(() => {
-    if (otpToken) {
+    // only auto-open verify step
+    // for OAuth redirect flow
+
+    const currentPath = window.location.pathname;
+
+    if (otpToken && currentPath === "/otp") {
       setStep(2);
-      setTimer(30); // optional UX
+      setTimer(30);
     }
   }, [otpToken]);
 
@@ -80,7 +85,7 @@ const OtpFlow = () => {
           {},
           {
             headers: { Authorization: `Bearer ${otpToken}` },
-          }
+          },
         );
       } else {
         // normal flow
@@ -108,13 +113,14 @@ const OtpFlow = () => {
       await api.post(
         "/api/auth/login/otp/verify",
         { otp: finalOtp },
-        { headers: { Authorization: `Bearer ${otpToken}` } }
+        { headers: { Authorization: `Bearer ${otpToken}` } },
       );
 
       const res = await api.get("/api/auth/me");
       const user = res.data.data;
 
       setUser(user);
+      setOtpToken(null);
       toast.success("Login successful");
 
       navigate(user.role === "admin" ? "/admin" : "/dashboard");
@@ -162,11 +168,7 @@ const OtpFlow = () => {
         disabled={loading}
         className="w-full py-2 rounded-full bg-pink-600"
       >
-        {loading
-          ? "Processing..."
-          : step === 1
-          ? "Send OTP"
-          : "Verify & Login"}
+        {loading ? "Processing..." : step === 1 ? "Send OTP" : "Verify & Login"}
       </button>
     </div>
   );

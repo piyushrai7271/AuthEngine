@@ -16,6 +16,14 @@ const OtpFlow = () => {
   const [timer, setTimer] = useState(0);
   const [loading, setLoading] = useState(false);
 
+  // ✅ 🔥 HANDLE OAUTH FLOW (skip step 1)
+  useEffect(() => {
+    if (otpToken) {
+      setStep(2);
+      setTimer(30); // optional UX
+    }
+  }, [otpToken]);
+
   // ⏱️ TIMER
   useEffect(() => {
     let interval;
@@ -59,9 +67,34 @@ const OtpFlow = () => {
   };
 
   // 🔁 RESEND
-  const handleResend = () => {
+  const handleResend = async () => {
     if (timer > 0) return;
-    handleSendOtp();
+
+    try {
+      setLoading(true);
+
+      // ✅ if oauth flow → resend using existing token
+      if (otpToken && step === 2 && !identifier) {
+        await api.post(
+          "/api/auth/login/otp/resend",
+          {},
+          {
+            headers: { Authorization: `Bearer ${otpToken}` },
+          }
+        );
+      } else {
+        // normal flow
+        await handleSendOtp();
+        return;
+      }
+
+      toast.success("OTP resent");
+      setTimer(30);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ✅ VERIFY
@@ -94,6 +127,7 @@ const OtpFlow = () => {
 
   return (
     <div className="space-y-4">
+      {/* ✅ SHOW IDENTIFIER ONLY IF STEP 1 */}
       {step === 1 && (
         <input
           type="text"

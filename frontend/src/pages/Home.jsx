@@ -1,6 +1,38 @@
+import { useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import Navbar from "../components/layout/Navbar";
 
 const Home = () => {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const error = params.get("error");
+    const message = params.get("message");
+
+    if (error) {
+      // 🔥 map backend errors to readable messages
+      let errorMessage = "Authentication failed";
+
+      switch (error) {
+        case "GOOGLE_AUTH_FAILED":
+          errorMessage = "Google login failed";
+          break;
+        case "AUTH_FAILED":
+          errorMessage = message || "OAuth failed";
+          break;
+        default:
+          errorMessage = message || "Something went wrong";
+      }
+
+      toast.error(errorMessage);
+
+      // ✅ clean URL after showing error
+      navigate("/", { replace: true });
+    }
+  }, [params, navigate]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] via-[#020617] to-[#020617] text-white">
       <Navbar />

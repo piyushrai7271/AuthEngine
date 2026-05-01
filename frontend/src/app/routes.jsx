@@ -5,7 +5,7 @@ import Home from "../pages/Home.jsx";
 import Dashboard from "../pages/user/Dashboard.jsx";
 import AdminDashboard from "../pages/admin/AdminDashboard.jsx";
 import NotFound from "../pages/NotFound.jsx";
-
+import OtpPage from "../pages/OtpPage.jsx";
 
 // protected
 import ProtectedRoute from "../components/layout/ProtectedRoute";
@@ -15,7 +15,10 @@ const router = createBrowserRouter([
     path: "/",
     element: <Home />, // landing + modal auth
   },
-
+  {
+    path: "/otp",
+    element: <OtpPage />,
+  },
   // 🔐 USER
   {
     path: "/dashboard",

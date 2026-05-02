@@ -306,21 +306,35 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
 
   const identifier = mobileNumber ?? email;
 
+  // ✅ build query safely
+  const query = [];
+
+  if (email) {
+    query.push({ email: email.toLowerCase() });
+  }
+
+  if (mobileNumber) {
+    query.push({ mobileNumber });
+  }
+
   // 2. find user
   const user = await User.findOne({
-    $or: [{ email }, { mobileNumber }],
+    $or: query,
   });
 
   // 3. if user exists → process
   if (user) {
-    // block check (allowed to expose)
+    // block check
     if (user.isBlocked) {
       throw new ApiError(403, "Account is blocked");
     }
 
     // 🚫 admins cannot use direct OTP login
     if (user.role === "admin") {
-      throw new ApiError(403, "Admins must login using email/password + OTP");
+      throw new ApiError(
+        403,
+        "Admins must login using email/password + OTP",
+      );
     }
 
     // invalidate old OTPs
@@ -338,12 +352,16 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
     // generate otpToken
     const otpToken = user.generateOtpToken(identifier, "login");
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, { otpToken }, "OTP sent if account exists"));
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        { otpToken },
+        "OTP sent if account exists",
+      ),
+    );
   }
 
-  // 4. user not found → SAME RESPONSE (security)
+  // 4. user not found
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "OTP sent if account exists"));
@@ -421,7 +439,8 @@ const resendOtp = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid OTP session");
   }
 
-  if (purpose !== "login") {
+  // ✅ allow both flows
+  if (!["login", "admin_2fa"].includes(purpose)) {
     throw new ApiError(400, "Invalid OTP purpose");
   }
 
@@ -437,16 +456,16 @@ const resendOtp = asyncHandler(async (req, res) => {
 
   // invalidate old OTPs
   await OTP.updateMany(
-    { identifier, purpose: "login", isUsed: false },
-    { isUsed: true },
-  );
+  { identifier, purpose, isUsed: false },
+  { isUsed: true },
+);
 
-  await sendOtp({
-    identifier,
-    purpose: "login",
-  });
+await sendOtp({
+  identifier,
+  purpose,
+});
 
-  const newOtpToken = user.generateOtpToken(identifier, "login");
+const newOtpToken = user.generateOtpToken(identifier, purpose);
 
   return res
     .status(200)
@@ -468,11 +487,21 @@ const forgotPassword = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please provide email or mobile number");
   }
 
-  const identifier = mobileNumber || email;
+  const identifier = mobileNumber ?? email;
+
+  let query = [];
+
+  if(email){
+    query.push({email: email.toString()});
+  }
+
+  if(mobileNumber){
+    query.push({mobileNumber});
+  }
 
   //2. Find user (but DON'T expose result)
   const user = await User.findOne({
-    $or: [{ email }, { mobileNumber }],
+    $or: query,
   });
 
   // ❗ Always send same response (prevent user enumeration)

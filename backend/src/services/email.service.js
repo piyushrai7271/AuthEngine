@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 
-// ✅ OTP EMAIL
+//  OTP EMAIL
 const sendEmail = async (email, otp) => {
   try {
     if (process.env.NODE_ENV === "production") {

@@ -139,7 +139,8 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     );
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  // ✅ SAFE ACCESS (no crash)
+  //  SAFE ACCESS (no crash)
+  
   const incomingRefreshToken =
     req.cookies?.refreshToken || req.body?.refreshToken;
 
@@ -331,10 +332,7 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
 
     // 🚫 admins cannot use direct OTP login
     if (user.role === "admin") {
-      throw new ApiError(
-        403,
-        "Admins must login using email/password + OTP",
-      );
+      throw new ApiError(403, "Admins must login using email/password + OTP");
     }
 
     // invalidate old OTPs
@@ -352,13 +350,9 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
     // generate otpToken
     const otpToken = user.generateOtpToken(identifier, "login");
 
-    return res.status(200).json(
-      new ApiResponse(
-        200,
-        { otpToken },
-        "OTP sent if account exists",
-      ),
-    );
+    return res
+      .status(200)
+      .json(new ApiResponse(200, { otpToken }, "OTP sent if account exists"));
   }
 
   // 4. user not found
@@ -456,16 +450,16 @@ const resendOtp = asyncHandler(async (req, res) => {
 
   // invalidate old OTPs
   await OTP.updateMany(
-  { identifier, purpose, isUsed: false },
-  { isUsed: true },
-);
+    { identifier, purpose, isUsed: false },
+    { isUsed: true },
+  );
 
-await sendOtp({
-  identifier,
-  purpose,
-});
+  await sendOtp({
+    identifier,
+    purpose,
+  });
 
-const newOtpToken = user.generateOtpToken(identifier, purpose);
+  const newOtpToken = user.generateOtpToken(identifier, purpose);
 
   return res
     .status(200)
@@ -491,12 +485,12 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
   let query = [];
 
-  if(email){
-    query.push({email: email.toString()});
+  if (email) {
+    query.push({ email: email.toString() });
   }
 
-  if(mobileNumber){
-    query.push({mobileNumber});
+  if (mobileNumber) {
+    query.push({ mobileNumber });
   }
 
   //2. Find user (but DON'T expose result)

@@ -2,10 +2,10 @@ import mongoose from "mongoose";
 
 const connectDb = async () => {
   try {
-    // ✅ strict query mode
+    //  strict query mode
     mongoose.set("strictQuery", true);
 
-    // // ✅ show mongo queries only in development
+    // //  show mongo queries only in development
     // if (process.env.NODE_ENV === "development") {
     //   mongoose.set("debug", true);
     // }
@@ -19,7 +19,7 @@ const connectDb = async () => {
       conn.connection.host
     );
   } catch (error) {
-    console.error("Database connection failed 💥", error);
+    console.error("Database connection failed :", error);
     process.exit(1);
   }
 };

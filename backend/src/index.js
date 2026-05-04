@@ -3,7 +3,7 @@ import "./configs/env.js";
 
 //  process handlers FIRST
 process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION 💥", err);
+  console.error("UNCAUGHT EXCEPTION :", err);
   process.exit(1);
 });
 
@@ -25,9 +25,9 @@ connectDb()
     process.exit(1);
   });
 
-// 🔥 async errors
+//  async errors
 process.on("unhandledRejection", (err) => {
-  console.error("UNHANDLED REJECTION 💥", err);
+  console.error("UNHANDLED REJECTION :", err);
 
   if (server) {
     server.close(() => {

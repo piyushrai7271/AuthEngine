@@ -7,7 +7,7 @@ import errorMiddleware from "./middlewares/error.middleware.js";
 
 const app = express();
 
-// ✅ IMPORTANT FOR RAILWAY / RENDER / PRODUCTION HTTPS
+//  IMPORTANT FOR RAILWAY / RENDER / PRODUCTION HTTPS
 app.set("trust proxy", 1);
 
 // USE SHARED CORS CONFIG
@@ -22,9 +22,12 @@ app.use(sessionMiddleware);
 // routes
 import userRoutes from "./routes/auth.routes.js";
 import oauthRoutes from "./routes/oauth.routes.js";
+import adminRoutes from "./routes/admin.routes.js";
 
 app.use("/api/auth", userRoutes);
 app.use("/api/oauth", oauthRoutes);
+app.use("/api/admin",adminRoutes);
+
 
 // ❗ 404 handler
 app.use((req, res) => {

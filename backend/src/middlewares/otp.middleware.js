@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import ApiError from "../utils/apiError.js";
 
+// middleware fot otp based login
 const otpAuth = (req, res, next) => {
   try {
     const token =
@@ -23,7 +24,7 @@ const otpAuth = (req, res, next) => {
       });
     }
 
-    req.otpData = decoded; // 🔥 attach data
+    req.otpData = decoded; // attach data
 
     next();
   } catch (error) {
@@ -34,6 +35,7 @@ const otpAuth = (req, res, next) => {
   }
 };
 
+// middleware for reset password
 const resetAuth = (req, res, next) => {
   try {
     const token =
@@ -54,7 +56,7 @@ const resetAuth = (req, res, next) => {
       throw new ApiError(401, "Invalid reset token");
     }
 
-    req.resetData = decoded; // 🔥 attach
+    req.resetData = decoded; //  attach
 
     next();
   } catch (error) {

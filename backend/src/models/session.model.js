@@ -39,7 +39,7 @@ const sessionSchema = new mongoose.Schema(
 // TTL index
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-// 🔥 Important for performance
+// Important for performance
 sessionSchema.index({ refreshToken: 1 });
 
 const Session = mongoose.model("Session", sessionSchema);

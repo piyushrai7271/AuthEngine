@@ -6,39 +6,54 @@ const api = axios.create({
 });
 
 let isRefreshing = false;
+
 let failedQueue = [];
 
-const processQueue = (error) => {
-  failedQueue.forEach((prom) => {
-    if (error) prom.reject(error);
-    else prom.resolve();
+const processQueue = (error = null) => {
+  failedQueue.forEach((promise) => {
+    if (error) {
+      promise.reject(error);
+    } else {
+      promise.resolve();
+    }
   });
+
   failedQueue = [];
 };
 
 api.interceptors.response.use(
   (response) => response,
+
   async (error) => {
     const originalRequest = error.config;
 
-    const message =
-      error.response?.data?.message || "Something went wrong";
-
-    // ❌ DO NOT intercept refresh endpoint itself
-    if (originalRequest.url.includes("/refresh-token")) {
-      return Promise.reject(new Error(message));
+    // ❌ no config means unknown axios error
+    if (!originalRequest) {
+      return Promise.reject(error);
     }
 
+    // ❌ don't intercept refresh endpoint itself
+    if (
+      originalRequest.url?.includes(
+        "/api/auth/refresh-token"
+      )
+    ) {
+      return Promise.reject(error);
+    }
+
+    // 🔐 access token expired
     if (
       error.response?.status === 401 &&
       !originalRequest._retry
     ) {
       originalRequest._retry = true;
 
+      // ⏳ queue pending requests while refresh running
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
-            resolve: () => resolve(api(originalRequest)),
+            resolve: () =>
+              resolve(api(originalRequest)),
             reject,
           });
         });
@@ -47,22 +62,23 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        // 🔄 refresh access token
         await api.post("/api/auth/refresh-token");
 
-        processQueue(null);
-        isRefreshing = false;
+        processQueue();
 
+        // ✅ retry original request
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);
-        isRefreshing = false;
 
-        // ❌ DO NOT reload page
         return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 
-    return Promise.reject(new Error(message));
+    return Promise.reject(error);
   }
 );
 

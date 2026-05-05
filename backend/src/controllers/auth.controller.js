@@ -1,6 +1,7 @@
 import User from "../models/auth.model.js";
 import OTP from "../models/otp.model.js";
 import Session from "../models/session.model.js";
+import jwt from "jsonwebtoken";
 import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -139,11 +140,12 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     );
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
-  //  SAFE ACCESS (no crash)
-  
+  // 🔐 get refresh token safely
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body?.refreshToken;
+    req.cookies?.refreshToken ||
+    req.body?.refreshToken;
 
+  // ❌ no refresh token
   if (!incomingRefreshToken) {
     return res.status(401).json({
       success: false,
@@ -153,54 +155,95 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
   let decodedToken;
 
+  // 🔍 verify refresh token
   try {
     decodedToken = jwt.verify(
       incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET,
+      process.env.REFRESH_TOKEN_SECRET
     );
   } catch (err) {
-    throw new ApiError(401, "Invalid or expired refresh token");
+    throw new ApiError(
+      401,
+      "Invalid or expired refresh token"
+    );
   }
 
+  // ❌ invalid payload
   if (!decodedToken?._id) {
-    throw new ApiError(401, "Invalid refresh token payload");
+    throw new ApiError(
+      401,
+      "Invalid refresh token payload"
+    );
   }
 
+  // 🔍 find active session
   const session = await Session.findOne({
-    refreshToken: incomingRefreshToken,
+    user: decodedToken._id,
     isValid: true,
-  });
+  })
+  .sort({ createdAt: -1 })
+  .select("+refreshToken");
 
+  // ❌ session not found
   if (!session) {
     throw new ApiError(401, "Session invalid");
   }
 
+  // ❌ token mismatch
+  if (
+    session.refreshToken !== incomingRefreshToken
+  ) {
+    throw new ApiError(
+      401,
+      "Refresh token mismatch"
+    );
+  }
+
+  // ❌ session expired
   if (session.expiresAt < new Date()) {
-    throw new ApiError(401, "Session expired");
+    throw new ApiError(
+      401,
+      "Session expired"
+    );
   }
 
-  if (session.user.toString() !== decodedToken._id.toString()) {
-    throw new ApiError(401, "Token mismatch");
-  }
+  // 🔍 find user
+  const user = await User.findById(
+    session.user
+  );
 
-  const user = await User.findById(session.user);
-
+  // ❌ user deleted
   if (!user) {
-    throw new ApiError(404, "User not found");
+    throw new ApiError(
+      404,
+      "User not found"
+    );
   }
 
-  // 🔁 rotate tokens
-  const accessToken = user.generateAccessToken();
-  const newRefreshToken = user.generateRefreshToken();
+  // 🔁 generate ONLY new access token
+  const accessToken =
+    user.generateAccessToken();
 
-  session.refreshToken = newRefreshToken;
-  await session.save();
-
+  // ✅ send updated access token
   return res
     .status(200)
-    .cookie("accessToken", accessToken, getAccessTokenOptions())
-    .cookie("refreshToken", newRefreshToken, getRefreshTokenOptions())
-    .json(new ApiResponse(200, {}, "Access token refreshed"));
+    .cookie(
+      "accessToken",
+      accessToken,
+      getAccessTokenOptions()
+    )
+    .cookie(
+      "refreshToken",
+      incomingRefreshToken,
+      getRefreshTokenOptions()
+    )
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "Access token refreshed"
+      )
+    );
 });
 const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword, confirmPassword } = req.body;
@@ -368,19 +411,19 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     throw new ApiError(400, "OTP is required");
   }
 
-  // ✅ only allowed purposes
+  //only allowed purposes
   if (!["login", "admin_2fa"].includes(purpose)) {
     throw new ApiError(400, "Invalid OTP purpose");
   }
 
-  // ✅ verify OTP
+  // verify OTP
   await verifyOtp({
     identifier,
     otp,
     purpose,
   });
 
-  // ✅ find user
+  // find user
   const user = await User.findById(_id);
 
   if (!user) {
@@ -391,7 +434,7 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Account is blocked");
   }
 
-  // 🚫 BLOCK admin OTP-only login
+  // BLOCK admin OTP-only login
   if (user.role === "admin" && purpose === "login") {
     throw new ApiError(
       403,
@@ -399,9 +442,8 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     );
   }
 
-  // ✅ ALLOW:
+  // ALLOW:
   // 1. normal user login OTP
-  // 2. admin_2fa flow
 
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user,
@@ -433,7 +475,7 @@ const resendOtp = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid OTP session");
   }
 
-  // ✅ allow both flows
+  // allow both flows
   if (!["login", "admin_2fa"].includes(purpose)) {
     throw new ApiError(400, "Invalid OTP purpose");
   }

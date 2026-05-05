@@ -38,7 +38,10 @@ const jwtAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    next(error);
+    return res.status(401).json({
+    success: false,
+    message: "Access token expired",
+  });
   }
 };
 

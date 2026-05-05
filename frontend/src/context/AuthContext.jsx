@@ -1,24 +1,43 @@
-import { createContext, useEffect, useState } from "react";
-import { loginUser, registerUser, logoutUser } from "../services/auth.service";
+import {
+  createContext,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  loginUser,
+  registerUser,
+  logoutUser,
+} from "../services/auth.service";
+
 import api from "../services/api";
 
 const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true); // 🔥 important
-  const [otpToken, setOtpToken] = useState(null);
 
-  // 🔍 FETCH CURRENT USER (used everywhere)
+  const [loading, setLoading] = useState(true);
+
+  const [otpToken, setOtpToken] =
+    useState(null);
+
+  // 🔍 FETCH CURRENT USER
   const fetchCurrentUser = async () => {
     try {
       const res = await api.get("/api/auth/me");
+
       const currentUser = res.data.data;
 
       setUser(currentUser);
+
       return currentUser;
     } catch (err) {
-      setUser(null);
+      // ❌ only clear user if truly unauthorized
+      if (err.response?.status === 401) {
+        setUser(null);
+      }
+
       return null;
     }
   };
@@ -26,8 +45,9 @@ const AuthProvider = ({ children }) => {
   // 🚀 INITIAL AUTH HYDRATION
   useEffect(() => {
     const initAuth = async () => {
-      await fetchCurrentUser(); // interceptor handles refresh
-      setLoading(false); // ✅ only after attempt
+      await fetchCurrentUser();
+
+      setLoading(false);
     };
 
     initAuth();
@@ -36,16 +56,21 @@ const AuthProvider = ({ children }) => {
   // 🔐 LOGIN
   const login = async (data) => {
     const res = await loginUser(data);
+
     const responseData = res?.data?.data;
 
-    // 🔐 OTP required
+    // 🔐 OTP FLOW
     if (responseData?.otpToken) {
       setOtpToken(responseData.otpToken);
-      return { otpRequired: true };
+
+      return {
+        otpRequired: true,
+      };
     }
 
-    // ✅ normal login
-    const currentUser = await fetchCurrentUser();
+    // ✅ NORMAL LOGIN
+    const currentUser =
+      await fetchCurrentUser();
 
     return {
       otpRequired: false,
@@ -74,15 +99,17 @@ const AuthProvider = ({ children }) => {
         user,
         loading,
         otpToken,
+
         login,
         register,
         logout,
+
         setUser,
         setOtpToken,
-        fetchCurrentUser, // 🔥 useful for future
+
+        fetchCurrentUser,
       }}
     >
-      {/* 🔥 prevent UI flicker */}
       {children}
     </AuthContext.Provider>
   );

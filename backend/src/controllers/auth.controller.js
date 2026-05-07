@@ -16,21 +16,10 @@ import {
 const register = asyncHandler(async (req, res) => {
   const { fullName, email, mobileNumber, password } = req.body;
 
-  // validation
-  if (!fullName || !password || (!email && !mobileNumber)) {
-    throw new ApiError(
-      400,
-      "Provide fullName, password and email or mobileNumber",
-    );
-  }
-
-  // normalize email
-  const normalizedEmail = email?.toLowerCase();
-
-  // check existing user (email OR mobile)
+  // check existing user
   const existUser = await User.findOne({
     $or: [
-      { email: normalizedEmail || null },
+      { email: email || null },
       { mobileNumber: mobileNumber || null },
     ],
   });
@@ -42,43 +31,38 @@ const register = asyncHandler(async (req, res) => {
   // create user
   const user = await User.create({
     fullName,
-    email: normalizedEmail,
+    email,
     mobileNumber,
     password,
     providers: [{ provider: "local" }],
   });
 
-  // remove sensitive fields (your approach)
+  // remove sensitive fields
   const createdUser = await User.findById(user._id).select("-password");
 
-  // return response
   return res
     .status(201)
-    .json(new ApiResponse(201, createdUser, "User created successfully"));
+    .json(
+      new ApiResponse(
+        201,
+        createdUser,
+        "User created successfully"
+      )
+    );
 });
 const loginWithPassword = asyncHandler(async (req, res) => {
   // input from body
   const { email, password } = req.body;
 
-  // validation
-  if (!email || !password) {
-    throw new ApiError(400, "Please provide email and password");
-  }
-
-  // normalize email
-  const normalizedEmail = email.toLowerCase();
-
   // find user
-  const user = await User.findOne({ email: normalizedEmail }).select(
-    "+password",
-  );
+  const user = await User.findOne({ email }).select("+password");
 
   if (!user) {
     throw new ApiError(404, "User not found, please register first");
   }
 
   if (user.isBlocked) {
-    throw new ApiError(403, "Account is blocked");
+    throw new ApiError(403, "Your account is blocked, please connect with admin");
   }
 
   // check if password login allowed
@@ -93,12 +77,18 @@ const loginWithPassword = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid password");
   }
 
-  // 🔐 ADMIN → require OTP (2FA)
+  // ADMIN → require OTP
   if (user.role === "admin") {
     // invalidate old OTPs
     await OTP.updateMany(
-      { identifier: user.email, purpose: "admin_2fa", isUsed: false },
-      { isUsed: true },
+      {
+        identifier: user.email,
+        purpose: "admin_2fa",
+        isUsed: false,
+      },
+      {
+        isUsed: true,
+      }
     );
 
     // send OTP
@@ -107,24 +97,37 @@ const loginWithPassword = asyncHandler(async (req, res) => {
       purpose: "admin_2fa",
     });
 
-    // generate otpToken
-    const otpToken = user.generateOtpToken(user.email, "admin_2fa");
+    // generate otp token
+    const otpToken = user.generateOtpToken(
+      user.email,
+      "admin_2fa"
+    );
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, { otpToken }, "OTP required for admin login"));
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        { otpToken },
+        "OTP required for admin login"
+      )
+    );
   }
 
-  // ✅ NORMAL USER → direct login
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user,
-    req,
-  );
+  // NORMAL USER → direct login
+  const { accessToken, refreshToken } =
+    await generateAccessAndRefreshToken(user, req);
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, getAccessTokenOptions())
-    .cookie("refreshToken", refreshToken, getRefreshTokenOptions())
+    .cookie(
+      "accessToken",
+      accessToken,
+      getAccessTokenOptions()
+    )
+    .cookie(
+      "refreshToken",
+      refreshToken,
+      getRefreshTokenOptions()
+    )
     .json(
       new ApiResponse(
         200,
@@ -135,8 +138,8 @@ const loginWithPassword = asyncHandler(async (req, res) => {
           mobileNumber: user.mobileNumber,
           role: user.role,
         },
-        "User logged in successfully",
-      ),
+        "User logged in successfully"
+      )
     );
 });
 const refreshAccessToken = asyncHandler(async (req, res) => {
@@ -246,19 +249,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     );
 });
 const changePassword = asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  const { currentPassword, newPassword } = req.body;
 
   const userId = req.user._id;
-
-  // validate input
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    throw new ApiError(400, "Please provide all required fields");
-  }
-
-  // check new vs confirm
-  if (newPassword !== confirmPassword) {
-    throw new ApiError(400, "New password and confirm password do not match");
-  }
 
   // prevent same password
   if (currentPassword === newPassword) {
@@ -277,22 +271,33 @@ const changePassword = asyncHandler(async (req, res) => {
 
   // verify current password
   const isPasswordValid = await user.isPasswordCorrect(currentPassword);
+
   if (!isPasswordValid) {
     throw new ApiError(401, "Current password is incorrect");
   }
 
   // update password (hashed via pre hook)
   user.password = newPassword;
+
   await user.save();
 
   // invalidate all sessions (force logout everywhere)
-  await Session.updateMany({ user: user._id }, { isValid: false });
+  await Session.updateMany(
+    { user: user._id },
+    { isValid: false },
+  );
 
   // clear cookies for current device
   return res
     .status(200)
-    .clearCookie("accessToken", getAccessTokenOptions())
-    .clearCookie("refreshToken", getRefreshTokenOptions())
+    .clearCookie(
+      "accessToken",
+      getAccessTokenOptions(),
+    )
+    .clearCookie(
+      "refreshToken",
+      getRefreshTokenOptions(),
+    )
     .json(
       new ApiResponse(
         200,
@@ -343,45 +348,49 @@ const logOutAllDevices = asyncHandler(async (req, res) => {
 const sendLoginOtp = asyncHandler(async (req, res) => {
   const { email, mobileNumber } = req.body;
 
-  // 1. validate input
-  if (!email && !mobileNumber) {
-    throw new ApiError(400, "Please provide email or mobile number");
-  }
-
   const identifier = mobileNumber ?? email;
 
-  // ✅ build query safely
+  // build query safely
   const query = [];
 
   if (email) {
-    query.push({ email: email.toLowerCase() });
+    query.push({ email });
   }
 
   if (mobileNumber) {
     query.push({ mobileNumber });
   }
 
-  // 2. find user
+  // find user
   const user = await User.findOne({
     $or: query,
   });
 
-  // 3. if user exists → process
+  // if user exists → process
   if (user) {
     // block check
     if (user.isBlocked) {
       throw new ApiError(403, "Account is blocked");
     }
 
-    // 🚫 admins cannot use direct OTP login
+    // admins cannot use direct OTP login
     if (user.role === "admin") {
-      throw new ApiError(403, "Admins must login using email/password + OTP");
+      throw new ApiError(
+        403,
+        "Admins must login using email/password + OTP",
+      );
     }
 
     // invalidate old OTPs
     await OTP.updateMany(
-      { identifier, purpose: "login", isUsed: false },
-      { isUsed: true },
+      {
+        identifier,
+        purpose: "login",
+        isUsed: false,
+      },
+      {
+        isUsed: true,
+      },
     );
 
     // send OTP
@@ -391,27 +400,39 @@ const sendLoginOtp = asyncHandler(async (req, res) => {
     });
 
     // generate otpToken
-    const otpToken = user.generateOtpToken(identifier, "login");
+    const otpToken = user.generateOtpToken(
+      identifier,
+      "login",
+    );
 
     return res
       .status(200)
-      .json(new ApiResponse(200, { otpToken }, "OTP sent if account exists"));
+      .json(
+        new ApiResponse(
+          200,
+          { otpToken },
+          "OTP sent if account exists",
+        ),
+      );
   }
 
-  // 4. user not found
+  // user not found
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "OTP sent if account exists"));
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "OTP sent if account exists",
+      ),
+    );
 });
 const verifyOtpAndLogin = asyncHandler(async (req, res) => {
   const { otp } = req.body;
+
   const { _id, identifier, purpose } = req.otpData;
 
-  if (!otp) {
-    throw new ApiError(400, "OTP is required");
-  }
-
-  //only allowed purposes
+  // only allowed purposes
   if (!["login", "admin_2fa"].includes(purpose)) {
     throw new ApiError(400, "Invalid OTP purpose");
   }
@@ -442,18 +463,22 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
     );
   }
 
-  // ALLOW:
-  // 1. normal user login OTP
-
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user,
-    req,
-  );
+  // NORMAL USER LOGIN
+  const { accessToken, refreshToken } =
+    await generateAccessAndRefreshToken(user, req);
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, getAccessTokenOptions())
-    .cookie("refreshToken", refreshToken, getRefreshTokenOptions())
+    .cookie(
+      "accessToken",
+      accessToken,
+      getAccessTokenOptions(),
+    )
+    .cookie(
+      "refreshToken",
+      refreshToken,
+      getRefreshTokenOptions(),
+    )
     .json(
       new ApiResponse(
         200,
@@ -470,10 +495,6 @@ const verifyOtpAndLogin = asyncHandler(async (req, res) => {
 });
 const resendOtp = asyncHandler(async (req, res) => {
   const { _id, identifier, purpose } = req.otpData;
-
-  if (!_id || !identifier) {
-    throw new ApiError(400, "Invalid OTP session");
-  }
 
   // allow both flows
   if (!["login", "admin_2fa"].includes(purpose)) {
@@ -492,23 +513,36 @@ const resendOtp = asyncHandler(async (req, res) => {
 
   // invalidate old OTPs
   await OTP.updateMany(
-    { identifier, purpose, isUsed: false },
-    { isUsed: true },
+    {
+      identifier,
+      purpose,
+      isUsed: false,
+    },
+    {
+      isUsed: true,
+    },
   );
 
+  // send new OTP
   await sendOtp({
     identifier,
     purpose,
   });
 
-  const newOtpToken = user.generateOtpToken(identifier, purpose);
+  // generate new otp token
+  const newOtpToken = user.generateOtpToken(
+    identifier,
+    purpose,
+  );
 
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        { otpToken: newOtpToken },
+        {
+          otpToken: newOtpToken,
+        },
         "OTP resent successfully",
       ),
     );
@@ -518,52 +552,57 @@ const resendOtp = asyncHandler(async (req, res) => {
 const forgotPassword = asyncHandler(async (req, res) => {
   const { email, mobileNumber } = req.body;
 
-  // 1. Validate input
-  if (!email && !mobileNumber) {
-    throw new ApiError(400, "Please provide email or mobile number");
-  }
-
   const identifier = mobileNumber ?? email;
 
-  let query = [];
+  const query = [];
 
   if (email) {
-    query.push({ email: email.toString() });
+    query.push({ email });
   }
 
   if (mobileNumber) {
     query.push({ mobileNumber });
   }
 
-  //2. Find user (but DON'T expose result)
+  // Find user (but DON'T expose result)
   const user = await User.findOne({
     $or: query,
   });
 
-  // ❗ Always send same response (prevent user enumeration)
+  // Always send same response (prevent user enumeration)
   if (!user) {
     return res
       .status(200)
       .json(
-        new ApiResponse(200, {}, "If account exists, OTP sent successfully"),
+        new ApiResponse(
+          200,
+          {},
+          "If account exists, OTP sent successfully",
+        ),
       );
   }
 
-  // block if admin is resetting password ❗ (LATER WE WILL HANDLE MORE ADVANCE WAY)
+  // block admin reset
   if (user.role === "admin") {
-    throw new ApiError(403, "Admins must contact support to reset password");
+    throw new ApiError(
+      403,
+      "Admins must contact support to reset password",
+    );
   }
 
-  // 3. Send OTP (purpose: reset_password)
+  // send OTP
   await sendOtp({
     identifier,
     purpose: "reset_password",
   });
 
-  // 4. Generate otpToken (short-lived)
-  const otpToken = user.generateOtpToken(identifier, "reset_password");
+  // generate otpToken
+  const otpToken = user.generateOtpToken(
+    identifier,
+    "reset_password",
+  );
 
-  // 5. Send response (no user data)
+  // send response
   return res
     .status(200)
     .json(
@@ -576,27 +615,21 @@ const forgotPassword = asyncHandler(async (req, res) => {
 });
 const verifyResetOtp = asyncHandler(async (req, res) => {
   const { otp } = req.body;
+
   const { _id, identifier, purpose } = req.otpData;
-
-  if (!otp) {
-    throw new ApiError(400, "OTP is required");
-  }
-
-  if (!_id || !identifier) {
-    throw new ApiError(400, "Invalid OTP session");
-  }
 
   if (purpose !== "reset_password") {
     throw new ApiError(400, "Invalid OTP purpose");
   }
 
-  // ✅ verify OTP
+  // verify OTP
   await verifyOtp({
     identifier,
     otp,
     purpose: "reset_password",
   });
 
+  // find user
   const user = await User.findById(_id);
 
   if (!user) {
@@ -607,50 +640,60 @@ const verifyResetOtp = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Account is blocked");
   }
 
-  // ✅ use model method (GOOD you added this)
+  // generate reset token
   const resetToken = user.generateResetToken();
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { resetToken }, "OTP verified successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        { resetToken },
+        "OTP verified successfully",
+      ),
+    );
 });
 const resetPassword = asyncHandler(async (req, res) => {
-  const { newPassword, confirmPassword } = req.body;
+  const { newPassword } = req.body;
+
   const { _id } = req.resetData;
-
-  if (!newPassword || !confirmPassword) {
-    throw new ApiError(400, "Please provide all fields");
-  }
-
-  if (newPassword !== confirmPassword) {
-    throw new ApiError(400, "Passwords do not match");
-  }
 
   // get user
   const user = await User.findById(_id).select("+password");
+
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  // prevent reuse
-  const isSamePassword = await user.isPasswordCorrect(newPassword);
+  // prevent password reuse
+  const isSamePassword =
+    await user.isPasswordCorrect(newPassword);
+
   if (isSamePassword) {
-    throw new ApiError(400, "New password cannot be same as old password");
+    throw new ApiError(
+      400,
+      "New password cannot be same as old password",
+    );
   }
 
   // update password
   user.password = newPassword;
+
   await user.save();
 
-  // 🔥 invalidate all sessions
-  await Session.updateMany({ user: user._id }, { isValid: false });
+  // invalidate all sessions
+  await Session.updateMany(
+    { user: user._id },
+    { isValid: false },
+  );
 
-  // ✅ NEW: send alert if admin
+  // send alert if admin
   if (user.role === "admin" && user.email) {
     await sendSecurityAlert(user.email);
   }
 
-  const isProduction = process.env.NODE_ENV === "production";
+  const isProduction =
+    process.env.NODE_ENV === "production";
 
   const cookieOptions = {
     httpOnly: true,
@@ -661,7 +704,13 @@ const resetPassword = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .clearCookie("resetToken", cookieOptions)
-    .json(new ApiResponse(200, {}, "Password reset successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "Password reset successfully",
+      ),
+    );
 });
 
 // get api..

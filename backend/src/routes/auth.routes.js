@@ -1,6 +1,18 @@
 import express from "express";
 import jwtAuth from "../middlewares/auth.middleware.js";
 import { otpAuth, resetAuth } from "../middlewares/otp.middleware.js";
+import validate from "../middlewares/validate.middleware.js";
+import {
+  registerSchema,
+  loginSchema,
+  changePasswordSchema,
+  sendLoginOtpSchema,
+  verifyOtpSchema,
+  resendOtpSchema,
+  forgotPasswordSchema,
+  verifyResetOtpSchema,
+  resetPasswordSchema,
+} from "../validators/auth.validators.js";
 
 import {
   register,
@@ -21,35 +33,66 @@ import {
   resetPassword,
 
   // get api
-  getCurrentUser
-
+  getCurrentUser,
 } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 
-
 // BASIC AUTH
-router.post("/register", register);
-router.post("/login", loginWithPassword);
+router.post("/register", validate(registerSchema, "body"), register);
+router.post("/login", validate(loginSchema, "body"), loginWithPassword);
 router.post("/refresh-token", refreshAccessToken);
 
+
 // PROTECTED (JWT)
-router.post("/change-password", jwtAuth, changePassword);
+router.post(
+  "/change-password",
+  jwtAuth,
+  validate(changePasswordSchema, "body"),
+  changePassword,
+);
 router.post("/logout", jwtAuth, logOutUser);
 router.post("/logout-all", jwtAuth, logOutAllDevices);
 
 // OTP LOGIN FLOW
-router.post("/login/otp/send", sendLoginOtp);
-router.post("/login/otp/verify", otpAuth, verifyOtpAndLogin);
-router.post("/login/otp/resend", otpAuth, resendOtp);
+router.post(
+  "/login/otp/send",
+  validate(sendLoginOtpSchema, "body"),
+  sendLoginOtp,
+);
+router.post(
+  "/login/otp/verify",
+  otpAuth,
+  validate(verifyOtpSchema, "body"),
+  verifyOtpAndLogin,
+);
+router.post(
+  "/login/otp/resend",
+  otpAuth,
+  validate(resendOtpSchema, "body"),
+  resendOtp,
+);
 
 // FORGOT PASSWORD FLOW
-router.post("/password/forgot", forgotPassword);
-router.post("/password/verify-otp", otpAuth, verifyResetOtp);
-router.post("/password/reset", resetAuth, resetPassword);
+router.post(
+  "/password/forgot",
+  validate(forgotPasswordSchema, "body"),
+  forgotPassword,
+);
+router.post(
+  "/password/verify-otp",
+  otpAuth,
+  validate(verifyResetOtpSchema, "body"),
+  verifyResetOtp,
+);
+router.post(
+  "/password/reset",
+  resetAuth,
+  validate(resetPasswordSchema, "body"),
+  resetPassword,
+);
 
-// get apis....
-router.get("/me",jwtAuth,getCurrentUser);
-
+// GET CURRENT USER
+router.get("/me", jwtAuth, getCurrentUser);
 
 export default router;

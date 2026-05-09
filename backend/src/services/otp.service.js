@@ -1,20 +1,27 @@
 import OTP from "../models/otp.model.js";
-import {sendEmail} from "./email.service.js";
+import { sendEmail } from "./email.service.js";
 import sendSms from "./sms.service.js";
-import bcrypt from "bcrypt";
 
-// generate 6 digit OTP
+// GENERATE 6 DIGIT OTP
 const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return Math.floor(
+    100000 + Math.random() * 900000
+  ).toString();
 };
 
-//  send OTP (main function)
-const sendOtp = async ({ identifier, purpose }) => {
+// SEND OTP
+const sendOtp = async ({
+  identifier,
+  purpose,
+}) => {
   const otp = generateOtp();
 
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+  const otpExpiry = new Date(
+    Date.now() + 10 * 60 * 1000
+  );
 
-  //  store RAW otp → model will hash it
+  // store raw otp
+  // model pre-save hook hashes it
   await OTP.create({
     identifier,
     otp,
@@ -22,9 +29,13 @@ const sendOtp = async ({ identifier, purpose }) => {
     otpExpiresAt: otpExpiry,
   });
 
+  // email otp
   if (identifier.includes("@")) {
     await sendEmail(identifier, otp);
-  } else {
+  }
+
+  // sms otp
+  else {
     await sendSms(identifier, otp);
   }
 
@@ -34,8 +45,12 @@ const sendOtp = async ({ identifier, purpose }) => {
   };
 };
 
-//  verify OTP
-const verifyOtp = async ({ identifier, otp, purpose }) => {
+// VERIFY OTP
+const verifyOtp = async ({
+  identifier,
+  otp,
+  purpose,
+}) => {
   const existingOtp = await OTP.findOne({
     identifier,
     purpose,
@@ -46,20 +61,29 @@ const verifyOtp = async ({ identifier, otp, purpose }) => {
     throw new Error("Invalid or expired OTP");
   }
 
-  if (existingOtp.otpExpiresAt < new Date()) {
+  // expired
+  if (
+    existingOtp.otpExpiresAt <
+    new Date()
+  ) {
     throw new Error("OTP expired");
   }
 
-  //  use model method
-  const isMatch = await existingOtp.isOtpCorrect(otp);
+  // compare otp
+  const isMatch =
+    await existingOtp.isOtpCorrect(otp);
 
   if (!isMatch) {
     existingOtp.attempts += 1;
+
     await existingOtp.save();
+
     throw new Error("Invalid OTP");
   }
 
+  // mark used
   existingOtp.isUsed = true;
+
   await existingOtp.save();
 
   return true;
@@ -67,5 +91,5 @@ const verifyOtp = async ({ identifier, otp, purpose }) => {
 
 export {
   sendOtp,
-  verifyOtp
-}
+  verifyOtp,
+};

@@ -11,8 +11,15 @@ const validate = (schema, source = "body") => {
 
       const validatedData = schema.parse(req[source]);
 
-      // overwrite validated/sanitized data
-      req[source] = validatedData;
+      // body & params can be overwritten safely
+      if (source === "body" || source === "params") {
+        req[source] = validatedData;
+      }
+
+      // query should be merged instead
+      if (source === "query") {
+        req.validatedQuery = validatedData;
+      }
 
       next();
     } catch (error) {

@@ -86,16 +86,18 @@ const getDashboardOverview = asyncHandler(async (req, res) => {
   );
 });
 const getAllUsers = asyncHandler(async (req, res) => {
-  // query params
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
-  const search = req.query.search?.trim() || "";
-  const blocked = req.query.blocked;
+  // validated query params
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    blocked,
+  } = req.query;
 
   // skip for pagination
   const skip = (page - 1) * limit;
 
-  // ✅ only normal users
+  // only normal users
   const filter = {
     role: "user",
   };
@@ -103,12 +105,22 @@ const getAllUsers = asyncHandler(async (req, res) => {
   // search by fullName or email
   if (search) {
     filter.$or = [
-      { fullName: { $regex: search, $options: "i" } },
-      { email: { $regex: search, $options: "i" } },
+      {
+        fullName: {
+          $regex: search,
+          $options: "i",
+        },
+      },
+      {
+        email: {
+          $regex: search,
+          $options: "i",
+        },
+      },
     ];
   }
 
-  // filter blocked/unblocked
+  // blocked/unblocked filter
   if (blocked === "true") {
     filter.isBlocked = true;
   }
@@ -124,17 +136,21 @@ const getAllUsers = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  // total users count
-  const totalUsers = await User.countDocuments(filter);
+  // total users
+  const totalUsers =
+    await User.countDocuments(filter);
 
-  // pagination info
-  const totalPages = Math.ceil(totalUsers / limit);
+  // total pages
+  const totalPages = Math.ceil(
+    totalUsers / limit,
+  );
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
         users,
+
         pagination: {
           totalUsers,
           totalPages,
@@ -142,8 +158,8 @@ const getAllUsers = asyncHandler(async (req, res) => {
           limit,
         },
       },
-      "Users fetched successfully"
-    )
+      "Users fetched successfully",
+    ),
   );
 });
 const blockUser = asyncHandler(async (req, res) => {
@@ -266,35 +282,46 @@ const deleteUser = asyncHandler(async (req, res) => {
   );
 });
 const getActiveSessions = asyncHandler(async (req, res) => {
-  // query params
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 10;
+  // validated query params
+  const {
+    page = 1,
+    limit = 10,
+  } = req.query;
 
+  // skip for pagination
   const skip = (page - 1) * limit;
 
-  // fetch active sessions
-  const sessions = await Session.find({
+  // active session filter
+  const filter = {
     isValid: true,
     expiresAt: { $gt: new Date() },
-  })
-    .populate("user", "fullName email role isBlocked")
+  };
+
+  // fetch active sessions
+  const sessions = await Session.find(filter)
+    .populate(
+      "user",
+      "fullName email role isBlocked",
+    )
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
 
-  // total sessions
-  const totalSessions = await Session.countDocuments({
-    isValid: true,
-    expiresAt: { $gt: new Date() },
-  });
+  // total active sessions
+  const totalSessions =
+    await Session.countDocuments(filter);
 
-  const totalPages = Math.ceil(totalSessions / limit);
+  // total pages
+  const totalPages = Math.ceil(
+    totalSessions / limit,
+  );
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
         sessions,
+
         pagination: {
           totalSessions,
           totalPages,
@@ -341,43 +368,59 @@ const revokeSession = asyncHandler(async (req, res) => {
   );
 });
 const getSecurityLogs = asyncHandler(async (req, res) => {
-  // query params
-  const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit) || 20;
-  const action = req.query.action;
-  const status = req.query.status;
+  // validated query params
+  const {
+    page = 1,
+    limit = 20,
+    action,
+    status,
+  } = req.query;
 
+  // skip for pagination
   const skip = (page - 1) * limit;
 
   // filters
   const filter = {};
 
+  // filter by action
   if (action) {
     filter.action = action;
   }
 
+  // filter by status
   if (status) {
     filter.status = status;
   }
 
   // fetch logs
   const logs = await AuditLog.find(filter)
-    .populate("performedBy", "fullName email role")
-    .populate("targetUser", "fullName email role")
+    .populate(
+      "performedBy",
+      "fullName email role",
+    )
+    .populate(
+      "targetUser",
+      "fullName email role",
+    )
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
 
   // total logs
-  const totalLogs = await AuditLog.countDocuments(filter);
+  const totalLogs =
+    await AuditLog.countDocuments(filter);
 
-  const totalPages = Math.ceil(totalLogs / limit);
+  // total pages
+  const totalPages = Math.ceil(
+    totalLogs / limit,
+  );
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
         logs,
+
         pagination: {
           totalLogs,
           totalPages,

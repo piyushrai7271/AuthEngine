@@ -13,19 +13,33 @@ const RegisterForm = ({ switchToLogin }) => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+
+  const [showPassword, setShowPassword] =
+    useState(false);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const { fullName, email, mobileNumber, password } = form;
+    const {
+      fullName,
+      email,
+      mobileNumber,
+      password,
+    } = form;
 
-    // 🔴 frontend validation (match backend)
-    if (!fullName || !password || (!email && !mobileNumber)) {
+    // frontend validation
+    if (
+      !fullName ||
+      !password ||
+      (!email && !mobileNumber)
+    ) {
       return toast.error(
         "Provide fullName, password and email or mobile number",
       );
@@ -34,7 +48,7 @@ const RegisterForm = ({ switchToLogin }) => {
     setLoading(true);
 
     try {
-      // ✅ only send filled fields
+      // only send filled fields
       const payload = {
         fullName,
         password,
@@ -44,11 +58,19 @@ const RegisterForm = ({ switchToLogin }) => {
 
       await register(payload);
 
-      toast.success("Account created successfully");
+      toast.success(
+        "Account created successfully",
+      );
 
       switchToLogin();
     } catch (err) {
-      toast.error(err.message || "Registration failed");
+      const errorMessage =
+        err.response?.data?.errors?.[0]
+          ?.message ||
+        err.response?.data?.message ||
+        "Registration failed";
+
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -56,9 +78,14 @@ const RegisterForm = ({ switchToLogin }) => {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold text-center mb-4">Create Account</h2>
+      <h2 className="text-xl font-semibold text-center mb-4">
+        Create Account
+      </h2>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4"
+      >
         <input
           type="text"
           name="fullName"
@@ -80,7 +107,9 @@ const RegisterForm = ({ switchToLogin }) => {
         />
 
         {/* OR divider */}
-        <p className="text-center text-xs text-gray-400">OR</p>
+        <p className="text-center text-xs text-gray-400">
+          OR
+        </p>
 
         {/* Mobile */}
         <input
@@ -92,9 +121,14 @@ const RegisterForm = ({ switchToLogin }) => {
           className="w-full px-4 py-2 rounded-full bg-slate-700 text-white"
         />
 
+        {/* Password */}
         <div className="relative">
           <input
-            type={showPassword ? "text" : "password"}
+            type={
+              showPassword
+                ? "text"
+                : "password"
+            }
             name="password"
             placeholder="Password"
             value={form.password}
@@ -104,7 +138,9 @@ const RegisterForm = ({ switchToLogin }) => {
           />
 
           <span
-            onClick={() => setShowPassword(!showPassword)}
+            onClick={() =>
+              setShowPassword(!showPassword)
+            }
             className="absolute right-3 top-2.5 cursor-pointer"
           >
             {showPassword ? "🙈" : "👁️"}
@@ -116,13 +152,18 @@ const RegisterForm = ({ switchToLogin }) => {
           disabled={loading}
           className="w-full py-2 rounded-full bg-pink-600"
         >
-          {loading ? "Creating..." : "Sign Up"}
+          {loading
+            ? "Creating..."
+            : "Sign Up"}
         </button>
       </form>
 
       <p className="text-center text-sm text-gray-400 mt-4">
         Already have an account?{" "}
-        <span onClick={switchToLogin} className="text-pink-400 cursor-pointer">
+        <span
+          onClick={switchToLogin}
+          className="text-pink-400 cursor-pointer"
+        >
           Log in
         </span>
       </p>

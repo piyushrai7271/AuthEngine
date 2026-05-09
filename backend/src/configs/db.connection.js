@@ -5,7 +5,7 @@ const connectDb = async () => {
     //  strict query mode
     mongoose.set("strictQuery", true);
 
-    // //  show mongo queries only in development
+    // //  show mongo queries error  only use in development 
     // if (process.env.NODE_ENV === "development") {
     //   mongoose.set("debug", true);
     // }

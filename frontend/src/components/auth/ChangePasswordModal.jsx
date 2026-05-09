@@ -47,7 +47,7 @@ const ChangePasswordModal = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-[#111827] p-6 rounded-xl w-96 space-y-4 text-white relative overflow-visible">
+      <div className="bg-[#111827] p-6 rounded-3xl w-96 space-y-4 text-white relative overflow-visible">
 
         {/* ❌ CLOSE */}
         <button
@@ -57,7 +57,7 @@ const ChangePasswordModal = ({ onClose }) => {
           ✕
         </button>
 
-        <h2 className="text-xl font-semibold text-center">
+        <h2 className="text-xl font-semibold text-center hover:text-pink-400">
           Change Password
         </h2>
 
@@ -71,7 +71,7 @@ const ChangePasswordModal = ({ onClose }) => {
               placeholder="Current Password"
               value={form.currentPassword}
               onChange={handleChange}
-              className="w-full px-4 py-2 pr-12 rounded bg-slate-700 text-white placeholder-gray-400"
+              className="w-full px-4 py-2 pr-12 rounded-2xl bg-slate-700 text-white placeholder-gray-400"
               required
             />
             <button
@@ -91,7 +91,7 @@ const ChangePasswordModal = ({ onClose }) => {
               placeholder="New Password"
               value={form.newPassword}
               onChange={handleChange}
-              className="w-full px-4 py-2 pr-12 rounded bg-slate-700 text-white placeholder-gray-400"
+              className="w-full px-4 py-2 pr-12 rounded-2xl bg-slate-700 text-white placeholder-gray-400"
               required
             />
             <button
@@ -111,7 +111,7 @@ const ChangePasswordModal = ({ onClose }) => {
               placeholder="Confirm Password"
               value={form.confirmPassword}
               onChange={handleChange}
-              className="w-full px-4 py-2 pr-12 rounded bg-slate-700 text-white placeholder-gray-400"
+              className="w-full px-4 py-2 pr-12 rounded-2xl bg-slate-700 text-white placeholder-gray-400"
               required
             />
             <button
@@ -126,7 +126,7 @@ const ChangePasswordModal = ({ onClose }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-pink-600 py-2 rounded"
+            className="w-full bg-pink-600 py-2 rounded-2xl"
           >
             {loading ? "Updating..." : "Update Password"}
           </button>

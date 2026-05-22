@@ -2,6 +2,7 @@ import express from "express";
 import jwtAuth from "../middlewares/auth.middleware.js";
 import { requireAdmin } from "../middlewares/role.middleware.js";
 import validate from "../middlewares/validate.middleware.js";
+import { adminRateLimiter } from "../middlewares/rateLimit.middleware.js";
 
 import {
   getAllUsersSchema,
@@ -23,14 +24,11 @@ import {
 
 const router = express.Router();
 
-// protect all admin routes
-router.use(jwtAuth, requireAdmin);
+// ADMIN PROTECTION
+router.use(jwtAuth, requireAdmin, adminRateLimiter);
 
 // dashboard
-router.get(
-  "/dashboard-overview",
-  getDashboardOverview,
-);
+router.get("/dashboard-overview", getDashboardOverview);
 
 // users
 router.get(
@@ -70,7 +68,7 @@ router.patch(
   revokeSession,
 );
 
-// security logs
+// logs
 router.get(
   "/security-logs",
   validate(getSecurityLogsSchema, "query"),

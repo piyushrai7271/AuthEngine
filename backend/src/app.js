@@ -4,11 +4,13 @@ import corsOptions from "./configs/cors.js";
 import cookieParser from "cookie-parser";
 import sessionMiddleware from "./middlewares/session.middleware.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
+import {globalRateLimiter} from "./middlewares/rateLimit.middleware.js";
 
 const app = express();
 
 //  IMPORTANT FOR RAILWAY / RENDER / PRODUCTION HTTPS
 app.set("trust proxy", 1);
+app.use(globalRateLimiter);
 
 // USE SHARED CORS CONFIG
 app.use(cors(corsOptions));

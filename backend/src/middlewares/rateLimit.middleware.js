@@ -1,7 +1,7 @@
 import rateLimit from "express-rate-limit";
 import ApiResponse from "../utils/apiResponse.js";
 
-// COMMON HANDLER
+// COMMON RESPONSE HANDLER........
 const rateLimitHandler = (message) => {
   return (req, res) => {
     return res.status(429).json(
@@ -14,9 +14,32 @@ const rateLimitHandler = (message) => {
   };
 };
 
-// GLOBAL LIMITER
+
+// KEY GENERATORS.....
+
+// login identifier
+const loginKeyGenerator = (req) => {
+  const email =
+    req.body?.email?.trim().toLowerCase() ||
+    "unknown";
+
+  return `${req.ip}-${email}`;
+};
+
+// otp / forgot password identifier
+const otpKeyGenerator = (req) => {
+  const identifier =
+    req.body?.email?.trim().toLowerCase() ||
+    req.body?.mobileNumber?.trim() ||
+    "unknown";
+
+  return `${req.ip}-${identifier}`;
+};
+
+
+// GLOBAL LIMITER.........
 const globalRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
+  windowMs: 15 * 60 * 1000,
   max: 200,
 
   handler: rateLimitHandler(
@@ -27,10 +50,13 @@ const globalRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// REGISTER LIMITER
+
+// REGISTER LIMITER....
 const registerRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
+
+  keyGenerator: otpKeyGenerator,
 
   handler: rateLimitHandler(
     "Too many registration attempts. Please try again later.",
@@ -40,10 +66,15 @@ const registerRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// LOGIN LIMITER
+
+// LOGIN LIMITER......
 const loginRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
+
+  skipSuccessfulRequests: true,
+
+  keyGenerator: loginKeyGenerator,
 
   handler: rateLimitHandler(
     "Too many login attempts. Please try again after 10 minutes.",
@@ -54,10 +85,12 @@ const loginRateLimiter = rateLimit({
 });
 
 
-// OTP SEND LIMITER
+// OTP SEND LIMITER......
 const otpSendRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 3,
+
+  keyGenerator: otpKeyGenerator,
 
   handler: rateLimitHandler(
     "Too many OTP requests. Please wait before requesting again.",
@@ -67,10 +100,15 @@ const otpSendRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// OTP VERIFY LIMITER
+
+// OTP VERIFY LIMITER.........
 const otpVerifyRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
+
+  skipSuccessfulRequests: true,
+
+  keyGenerator: otpKeyGenerator,
 
   handler: rateLimitHandler(
     "Too many OTP verification attempts. Please try again later.",
@@ -80,10 +118,15 @@ const otpVerifyRateLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// RESET PASSWORD LIMITER
+
+// RESET PASSWORD LIMITER............
 const resetPasswordRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
+
+  skipSuccessfulRequests: true,
+
+  keyGenerator: otpKeyGenerator,
 
   handler: rateLimitHandler(
     "Too many password reset attempts. Please try again later.",
@@ -94,7 +137,7 @@ const resetPasswordRateLimiter = rateLimit({
 });
 
 
-// REFRESH TOKEN LIMITER
+// REFRESH TOKEN LIMITER.........
 const refreshTokenRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -108,7 +151,7 @@ const refreshTokenRateLimiter = rateLimit({
 });
 
 
-// ADMIN LIMITER
+// ADMIN LIMITER........
 const adminRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -120,6 +163,9 @@ const adminRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+
+// EXPORTS........
 
 export {
   globalRateLimiter,

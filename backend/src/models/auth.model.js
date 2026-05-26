@@ -65,6 +65,15 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );
@@ -123,7 +132,7 @@ userSchema.methods.generateOtpToken = function (identifier, purpose) {
     process.env.OTP_TOKEN_SECRET,
     {
       expiresIn: process.env.OTP_TOKEN_EXPIRY,
-    }
+    },
   );
 };
 
@@ -137,8 +146,46 @@ userSchema.methods.generateResetToken = function () {
     process.env.RESET_TOKEN_SECRET,
     {
       expiresIn: process.env.RESET_TOKEN_EXPIRY,
-    }
+    },
   );
+};
+
+// account locking methods
+userSchema.methods.isAccountLocked = function () {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+};
+
+// increment faild login
+userSchema.methods.incrementLoginAttempts = async function () {
+
+  // if previous lock expired
+  if (this.lockUntil && this.lockUntil < Date.now()) {
+    this.failedLoginAttempts = 1;
+    this.lockUntil = null;
+
+    return await this.save();
+  }
+
+  // increment attempts
+  this.failedLoginAttempts += 1;
+
+  // lock account after 5 attempts
+  if (this.failedLoginAttempts >= 5) {
+    this.lockUntil = new Date(
+      Date.now() + 15 * 60 * 1000
+    );
+  }
+
+  return await this.save();
+};
+
+// reset login attempts method
+userSchema.methods.resetLoginAttempts = async function () {
+
+  this.failedLoginAttempts = 0;
+  this.lockUntil = null;
+
+  return await this.save();
 };
 
 const User = mongoose.model("User", userSchema);

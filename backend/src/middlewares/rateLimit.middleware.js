@@ -1,8 +1,11 @@
-import rateLimit, {ipKeyGenerator,} from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
+import redisClient from "../configs/redis.config.js";
 import ApiResponse from "../utils/apiResponse.js";
 
 
-// COMMON RESPONSE HANDLER....
+
+// COMMON RESPONSE HANDLER..........
 const rateLimitHandler = (message) => {
   return (req, res) => {
     return res.status(429).json(
@@ -16,11 +19,21 @@ const rateLimitHandler = (message) => {
 };
 
 
-// KEY GENERATORS..........
 
+// REDIS STORE...............
+const createRedisStore = (prefix) => {
+  return new RedisStore({
+    sendCommand: (...args) => redisClient.sendCommand(args),
+    prefix,
+  });
+};
+
+
+// KEY GENERATORS................
 // LOGIN IDENTIFIER
-// limit based on:
+// LIMIT BASED ON:
 // IP + EMAIL
+
 const loginKeyGenerator = (req) => {
   const email =
     req.body?.email
@@ -30,9 +43,11 @@ const loginKeyGenerator = (req) => {
   return `${ipKeyGenerator(req.ip)}-${email}`;
 };
 
+
 // OTP / REGISTER / RESET IDENTIFIER
-// limit based on:
+// LIMIT BASED ON:
 // IP + EMAIL/MOBILE
+
 const otpKeyGenerator = (req) => {
   const identifier =
     req.body?.email
@@ -45,8 +60,12 @@ const otpKeyGenerator = (req) => {
   return `${ipKeyGenerator(req.ip)}-${identifier}`;
 };
 
-// GLOBAL LIMITER..............
+
+// GLOBAL LIMITER...............
 const globalRateLimiter = rateLimit({
+  store: createRedisStore("global-limit:")
+  ,
+
   windowMs: 15 * 60 * 1000,
   max: 200,
 
@@ -59,8 +78,10 @@ const globalRateLimiter = rateLimit({
 });
 
 
-// REGISTER LIMITER...............
+// REGISTER LIMITER.................
 const registerRateLimiter = rateLimit({
+  store: createRedisStore("register-limit:"),
+
   windowMs: 15 * 60 * 1000,
   max: 5,
 
@@ -75,15 +96,17 @@ const registerRateLimiter = rateLimit({
 });
 
 
-// LOGIN LIMITER..............
+// LOGIN LIMITER...............
 const loginRateLimiter = rateLimit({
+  store: createRedisStore("login-limit:"),
+
   windowMs: 10 * 60 * 1000,
   max: 5,
 
   // count only failed attempts
   skipSuccessfulRequests: true,
 
-  // IP + email based limiting
+  // IP + EMAIL based limiting
   keyGenerator: loginKeyGenerator,
 
   handler: rateLimitHandler(
@@ -95,8 +118,10 @@ const loginRateLimiter = rateLimit({
 });
 
 
-// OTP SEND LIMITER...............
+// OTP SEND LIMITER...................
 const otpSendRateLimiter = rateLimit({
+  store: createRedisStore("otp-send-limit:"),
+
   windowMs: 10 * 60 * 1000,
   max: 3,
 
@@ -111,8 +136,10 @@ const otpSendRateLimiter = rateLimit({
 });
 
 
-// OTP VERIFY LIMITER...............
+// OTP VERIFY LIMITER....................
 const otpVerifyRateLimiter = rateLimit({
+  store: createRedisStore("otp-verify-limit:"),
+
   windowMs: 10 * 60 * 1000,
   max: 5,
 
@@ -129,8 +156,10 @@ const otpVerifyRateLimiter = rateLimit({
 });
 
 
-// RESET PASSWORD LIMITER...........
+// RESET PASSWORD LIMITER.................
 const resetPasswordRateLimiter = rateLimit({
+  store: createRedisStore("reset-password-limit:"),
+
   windowMs: 15 * 60 * 1000,
   max: 3,
 
@@ -147,8 +176,10 @@ const resetPasswordRateLimiter = rateLimit({
 });
 
 
-// REFRESH TOKEN LIMITER........
+// REFRESH TOKEN LIMITER.....
 const refreshTokenRateLimiter = rateLimit({
+  store: createRedisStore("refresh-token-limit:"),
+
   windowMs: 15 * 60 * 1000,
   max: 20,
 
@@ -161,8 +192,10 @@ const refreshTokenRateLimiter = rateLimit({
 });
 
 
-// ADMIN LIMITER.............
+// ADMIN LIMITER.........
 const adminRateLimiter = rateLimit({
+  store: createRedisStore("admin-limit:"),
+
   windowMs: 15 * 60 * 1000,
   max: 100,
 
@@ -175,8 +208,7 @@ const adminRateLimiter = rateLimit({
 });
 
 
-// EXPORTS.............
-
+// EXPORTS....................
 export {
   globalRateLimiter,
   registerRateLimiter,

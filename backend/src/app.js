@@ -10,7 +10,7 @@ const app = express();
 
 //  IMPORTANT FOR RAILWAY / RENDER / PRODUCTION HTTPS
 app.set("trust proxy", 1);
-app.use(globalRateLimiter);
+
 
 // USE SHARED CORS CONFIG
 app.use(cors(corsOptions));
@@ -20,6 +20,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(sessionMiddleware);
+
+// global middleware
+app.use(globalRateLimiter);
 
 // routes
 import userRoutes from "./routes/auth.routes.js";

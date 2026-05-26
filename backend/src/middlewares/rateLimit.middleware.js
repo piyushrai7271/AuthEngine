@@ -1,7 +1,8 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, {ipKeyGenerator,} from "express-rate-limit";
 import ApiResponse from "../utils/apiResponse.js";
 
-// COMMON RESPONSE HANDLER........
+
+// COMMON RESPONSE HANDLER....
 const rateLimitHandler = (message) => {
   return (req, res) => {
     return res.status(429).json(
@@ -15,29 +16,36 @@ const rateLimitHandler = (message) => {
 };
 
 
-// KEY GENERATORS.....
+// KEY GENERATORS..........
 
-// login identifier
+// LOGIN IDENTIFIER
+// limit based on:
+// IP + EMAIL
 const loginKeyGenerator = (req) => {
   const email =
-    req.body?.email?.trim().toLowerCase() ||
-    "unknown";
+    req.body?.email
+      ?.trim()
+      ?.toLowerCase() || "unknown";
 
-  return `${req.ip}-${email}`;
+  return `${ipKeyGenerator(req.ip)}-${email}`;
 };
 
-// otp / forgot password identifier
+// OTP / REGISTER / RESET IDENTIFIER
+// limit based on:
+// IP + EMAIL/MOBILE
 const otpKeyGenerator = (req) => {
   const identifier =
-    req.body?.email?.trim().toLowerCase() ||
-    req.body?.mobileNumber?.trim() ||
+    req.body?.email
+      ?.trim()
+      ?.toLowerCase() ||
+    req.body?.mobileNumber
+      ?.trim() ||
     "unknown";
 
-  return `${req.ip}-${identifier}`;
+  return `${ipKeyGenerator(req.ip)}-${identifier}`;
 };
 
-
-// GLOBAL LIMITER.........
+// GLOBAL LIMITER..............
 const globalRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
@@ -51,7 +59,7 @@ const globalRateLimiter = rateLimit({
 });
 
 
-// REGISTER LIMITER....
+// REGISTER LIMITER...............
 const registerRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -67,13 +75,15 @@ const registerRateLimiter = rateLimit({
 });
 
 
-// LOGIN LIMITER......
+// LOGIN LIMITER..............
 const loginRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
 
+  // count only failed attempts
   skipSuccessfulRequests: true,
 
+  // IP + email based limiting
   keyGenerator: loginKeyGenerator,
 
   handler: rateLimitHandler(
@@ -85,7 +95,7 @@ const loginRateLimiter = rateLimit({
 });
 
 
-// OTP SEND LIMITER......
+// OTP SEND LIMITER...............
 const otpSendRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 3,
@@ -101,7 +111,7 @@ const otpSendRateLimiter = rateLimit({
 });
 
 
-// OTP VERIFY LIMITER.........
+// OTP VERIFY LIMITER...............
 const otpVerifyRateLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 5,
@@ -119,7 +129,7 @@ const otpVerifyRateLimiter = rateLimit({
 });
 
 
-// RESET PASSWORD LIMITER............
+// RESET PASSWORD LIMITER...........
 const resetPasswordRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
@@ -137,7 +147,7 @@ const resetPasswordRateLimiter = rateLimit({
 });
 
 
-// REFRESH TOKEN LIMITER.........
+// REFRESH TOKEN LIMITER........
 const refreshTokenRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -151,7 +161,7 @@ const refreshTokenRateLimiter = rateLimit({
 });
 
 
-// ADMIN LIMITER........
+// ADMIN LIMITER.............
 const adminRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -165,7 +175,7 @@ const adminRateLimiter = rateLimit({
 });
 
 
-// EXPORTS........
+// EXPORTS.............
 
 export {
   globalRateLimiter,

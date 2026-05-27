@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import ApiError from "../utils/apiError.js";
 import ApiResponse from "../utils/apiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import createSecurityLog from "../services/securityLog.service.js";
 import { sendOtp, verifyOtp } from "../services/otp.service.js";
 import { sendSecurityAlert } from "../services/email.service.js";
 import { generateAccessAndRefreshToken } from "../services/token.service.js";
@@ -42,52 +43,120 @@ const register = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, "User created successfully"));
 });
 const loginWithPassword = asyncHandler(async (req, res) => {
+
   // input from body
   const { email, password } = req.body;
 
   // find user
   const user = await User.findOne({ email }).select("+password");
 
+  // invalid email
   if (!user) {
-    throw new ApiError(404, "Invalid email or password");
+
+    await createSecurityLog({
+      action: "LOGIN_FAILED",
+      status: "FAILED",
+      message: `Failed login attempt for email: ${email}`,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    throw new ApiError(401, "Invalid email or password");
   }
 
+  // blocked account
   if (user.isBlocked) {
+
+    await createSecurityLog({
+      action: "LOGIN_FAILED",
+      performedBy: user._id,
+      targetUser: user._id,
+      status: "FAILED",
+      message: "Blocked user attempted login",
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     throw new ApiError(
       403,
       "Your account is blocked, please connect with admin",
     );
   }
 
-  // check account lock
+  // account locked
   if (user.isAccountLocked()) {
+
+    await createSecurityLog({
+      action: "LOGIN_FAILED",
+      performedBy: user._id,
+      targetUser: user._id,
+      status: "FAILED",
+      message: "Locked account login attempt",
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     throw new ApiError(
       423,
       "Account temporarily locked due to multiple failed login attempts. Please try again later.",
     );
   }
 
-  // check if password login allowed
+  // password login not available
   if (!user.password) {
-    throw new ApiError(400, "Password login not available for this user");
+
+    await createSecurityLog({
+      action: "LOGIN_FAILED",
+      performedBy: user._id,
+      targetUser: user._id,
+      status: "FAILED",
+      message: "Password login not available",
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    throw new ApiError(
+      400,
+      "Password login not available for this user",
+    );
   }
 
   // verify password
-  const isPasswordValid = await user.isPasswordCorrect(password);
+  const isPasswordValid =
+    await user.isPasswordCorrect(password);
 
+  // invalid password
   if (!isPasswordValid) {
+
     await user.incrementLoginAttempts();
 
-    throw new ApiError(401, "Invalid email or password");
+    await createSecurityLog({
+      action: "LOGIN_FAILED",
+      performedBy: user._id,
+      targetUser: user._id,
+      status: "FAILED",
+      message: "Invalid password entered",
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    throw new ApiError(
+      401,
+      "Invalid email or password",
+    );
   }
 
-  // reset failed attempts
-  if (user.failedLoginAttempts > 0 || user.lockUntil) {
+  // reset attempts after successful login
+  if (
+    user.failedLoginAttempts > 0 ||
+    user.lockUntil
+  ) {
     await user.resetLoginAttempts();
   }
 
-  // ADMIN → require OTP
+  // ADMIN LOGIN
   if (user.role === "admin") {
+
     // invalidate old OTPs
     await OTP.updateMany(
       {
@@ -106,24 +175,62 @@ const loginWithPassword = asyncHandler(async (req, res) => {
       purpose: "admin_2fa",
     });
 
-    // generate otp token
-    const otpToken = user.generateOtpToken(user.email, "admin_2fa");
+    // log admin login step
+    await createSecurityLog({
+      action: "ADMIN_LOGIN",
+      performedBy: user._id,
+      targetUser: user._id,
+      status: "SUCCESS",
+      message: "Admin password verified, OTP sent",
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, { otpToken }, "OTP required for admin login"));
+    // generate otp token
+    const otpToken = user.generateOtpToken(
+      user.email,
+      "admin_2fa",
+    );
+
+    return res.status(200).json(
+      new ApiResponse(
+        200,
+        { otpToken },
+        "OTP required for admin login",
+      ),
+    );
   }
 
-  // NORMAL USER → direct login
-  const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
-    user,
-    req,
-  );
+  // NORMAL USER LOGIN
+  const { accessToken, refreshToken } =
+    await generateAccessAndRefreshToken(
+      user,
+      req,
+    );
+
+  // success log
+  await createSecurityLog({
+    action: "LOGIN_SUCCESS",
+    performedBy: user._id,
+    targetUser: user._id,
+    status: "SUCCESS",
+    message: "User logged in successfully",
+    ipAddress: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
 
   return res
     .status(200)
-    .cookie("accessToken", accessToken, getAccessTokenOptions())
-    .cookie("refreshToken", refreshToken, getRefreshTokenOptions())
+    .cookie(
+      "accessToken",
+      accessToken,
+      getAccessTokenOptions(),
+    )
+    .cookie(
+      "refreshToken",
+      refreshToken,
+      getRefreshTokenOptions(),
+    )
     .json(
       new ApiResponse(
         200,

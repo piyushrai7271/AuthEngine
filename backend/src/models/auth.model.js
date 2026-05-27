@@ -74,6 +74,10 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    lockCount: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true },
 );
@@ -155,38 +159,57 @@ userSchema.methods.isAccountLocked = function () {
   return !!(this.lockUntil && this.lockUntil > Date.now());
 };
 
-// increment faild login
-userSchema.methods.incrementLoginAttempts = async function () {
 
-  // if previous lock expired
-  if (this.lockUntil && this.lockUntil < Date.now()) {
-    this.failedLoginAttempts = 1;
-    this.lockUntil = null;
+// increment failed login attempts
+userSchema.methods.incrementLoginAttempts =
+  async function () {
+
+    // previous lock expired
+    if (
+      this.lockUntil &&
+      this.lockUntil < Date.now()
+    ) {
+      this.failedLoginAttempts = 0;
+      this.lockUntil = null;
+    }
+
+    // increment attempts
+    this.failedLoginAttempts += 1;
+
+    // lock after 5 failed attempts
+    if (this.failedLoginAttempts >= 5) {
+
+      // increase lock count
+      this.lockCount += 1;
+
+      // exponential cooldown
+      const lockTime =
+        15 *
+        60 *
+        1000 *
+        Math.pow(2, this.lockCount - 1);
+
+      this.lockUntil = new Date(
+        Date.now() + lockTime
+      );
+
+      // reset attempts after lock
+      this.failedLoginAttempts = 0;
+    }
 
     return await this.save();
-  }
+  };
 
-  // increment attempts
-  this.failedLoginAttempts += 1;
+// reset login attempts
+userSchema.methods.resetLoginAttempts =
+  async function () {
 
-  // lock account after 5 attempts
-  if (this.failedLoginAttempts >= 5) {
-    this.lockUntil = new Date(
-      Date.now() + 15 * 60 * 1000
-    );
-  }
+    this.failedLoginAttempts = 0;
+    this.lockUntil = null;
+    this.lockCount = 0;
 
-  return await this.save();
-};
-
-// reset login attempts method
-userSchema.methods.resetLoginAttempts = async function () {
-
-  this.failedLoginAttempts = 0;
-  this.lockUntil = null;
-
-  return await this.save();
-};
+    return await this.save();
+  };
 
 const User = mongoose.model("User", userSchema);
 export default User;

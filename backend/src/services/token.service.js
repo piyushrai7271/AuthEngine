@@ -1,5 +1,4 @@
 import Session from "../models/session.model.js";
-import ms from "ms";
 
 export const generateAccessAndRefreshToken = async (user, req) => {
   const accessToken = user.generateAccessToken();
@@ -10,8 +9,11 @@ export const generateAccessAndRefreshToken = async (user, req) => {
     refreshToken,
     userAgent: req.headers["user-agent"],
     ipAddress: req.ip,
-    expiresAt: new Date(Date.now() + ms(process.env.REFRESH_TOKEN_EXPIRY)),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
-  return { accessToken, refreshToken };
+  return {
+    accessToken,
+    refreshToken,
+  };
 };

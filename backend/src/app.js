@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import corsOptions from "./configs/cors.js";
 import cookieParser from "cookie-parser";
+import mongoSanitize from "express-mongo-sanitize";
 import sessionMiddleware from "./middlewares/session.middleware.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import {globalRateLimiter} from "./middlewares/rateLimit.middleware.js";
@@ -25,6 +26,7 @@ app.use(cors(corsOptions));
 // BODY PARSERS
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
+app.use(mongoSanitize());  // NOSQL INJECTION PROTECTION
 app.use(cookieParser()); // COOKIE PARSER
 
 // SESSION MIDDLEWARE

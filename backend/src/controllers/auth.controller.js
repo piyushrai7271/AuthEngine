@@ -371,7 +371,7 @@ const logOutUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "No refresh token provided");
   }
 
-  // ✅ invalidate session
+  // invalidate session
   const session = await Session.findOneAndUpdate(
     { refreshToken },
     { isValid: false },
@@ -380,6 +380,16 @@ const logOutUser = asyncHandler(async (req, res) => {
   if (!session) {
     throw new ApiError(404, "Session not found");
   }
+
+  // SECURITY LOG
+  await createSecurityLog({
+    action: "LOGOUT",
+    performedBy: req.user?._id || null,
+    targetUser: req.user?._id || null,
+    req,
+    status: "SUCCESS",
+    message: "User logged out from current device",
+  });
 
   return res
     .status(200)
@@ -392,8 +402,21 @@ const logOutAllDevices = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Unauthorized");
   }
 
-  // ✅ invalidate all sessions
-  await Session.updateMany({ user: req.user._id }, { isValid: false });
+  // invalidate all sessions
+  await Session.updateMany(
+    { user: req.user._id },
+    { isValid: false },
+  );
+
+  // SECURITY LOG
+  await createSecurityLog({
+    action: "LOGOUT",
+    performedBy: req.user._id,
+    targetUser: req.user._id,
+    req,
+    status: "SUCCESS",
+    message: "User logged out from all devices",
+  });
 
   return res
     .status(200)
@@ -603,14 +626,31 @@ const forgotPassword = asyncHandler(async (req, res) => {
     return res
       .status(200)
       .json(
-        new ApiResponse(200, {}, "If account exists, OTP sent successfully"),
+        new ApiResponse(
+          200,
+          {},
+          "If account exists, OTP sent successfully",
+        ),
       );
   }
 
   // block admin reset
   if (user.role === "admin") {
-    throw new ApiError(403, "Admins must contact support to reset password");
+    throw new ApiError(
+      403,
+      "Admins must contact support to reset password",
+    );
   }
+
+  // SECURITY LOG
+  await createSecurityLog({
+    action: "PASSWORD_RESET",
+    performedBy: user._id,
+    targetUser: user._id,
+    req,
+    status: "SUCCESS",
+    message: "Password reset OTP requested",
+  });
 
   // send OTP
   await sendOtp({
@@ -619,7 +659,10 @@ const forgotPassword = asyncHandler(async (req, res) => {
   });
 
   // generate otpToken
-  const otpToken = user.generateOtpToken(identifier, "reset_password");
+  const otpToken = user.generateOtpToken(
+    identifier,
+    "reset_password",
+  );
 
   // send response
   return res
@@ -679,10 +722,14 @@ const resetPassword = asyncHandler(async (req, res) => {
   }
 
   // prevent password reuse
-  const isSamePassword = await user.isPasswordCorrect(newPassword);
+  const isSamePassword =
+    await user.isPasswordCorrect(newPassword);
 
   if (isSamePassword) {
-    throw new ApiError(400, "New password cannot be same as old password");
+    throw new ApiError(
+      400,
+      "New password cannot be same as old password",
+    );
   }
 
   // update password
@@ -691,14 +738,28 @@ const resetPassword = asyncHandler(async (req, res) => {
   await user.save();
 
   // invalidate all sessions
-  await Session.updateMany({ user: user._id }, { isValid: false });
+  await Session.updateMany(
+    { user: user._id },
+    { isValid: false },
+  );
 
   // send alert if admin
   if (user.role === "admin" && user.email) {
     await sendSecurityAlert(user.email);
   }
 
-  const isProduction = process.env.NODE_ENV === "production";
+  // SECURITY LOG
+  await createSecurityLog({
+    action: "PASSWORD_CHANGED",
+    performedBy: user._id,
+    targetUser: user._id,
+    req,
+    status: "SUCCESS",
+    message: "Password reset completed successfully",
+  });
+
+  const isProduction =
+    process.env.NODE_ENV === "production";
 
   const cookieOptions = {
     httpOnly: true,
@@ -709,7 +770,13 @@ const resetPassword = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .clearCookie("resetToken", cookieOptions)
-    .json(new ApiResponse(200, {}, "Password reset successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        "Password reset successfully",
+      ),
+    );
 });
 
 // get api..

@@ -45,43 +45,64 @@ const sendOtp = async ({
   };
 };
 
+
 // VERIFY OTP
 const verifyOtp = async ({
   identifier,
   otp,
   purpose,
 }) => {
+
   const existingOtp = await OTP.findOne({
     identifier,
     purpose,
     isUsed: false,
   }).select("+otp");
 
+  // OTP not found
   if (!existingOtp) {
     throw new Error("Invalid or expired OTP");
   }
 
-  // expired
+  // OTP expired
   if (
-    existingOtp.otpExpiresAt <
-    new Date()
+    existingOtp.otpExpiresAt < new Date()
   ) {
     throw new Error("OTP expired");
+  }
+
+  // BLOCK after too many attempts
+  if (existingOtp.attempts >= 5) {
+
+    existingOtp.isUsed = true;
+
+    await existingOtp.save();
+
+    throw new Error(
+      "Too many invalid OTP attempts. Please request a new OTP."
+    );
   }
 
   // compare otp
   const isMatch =
     await existingOtp.isOtpCorrect(otp);
 
+  // invalid otp
   if (!isMatch) {
+
     existingOtp.attempts += 1;
+
+    // invalidate OTP after 5 attempts
+    if (existingOtp.attempts >= 5) {
+      existingOtp.isUsed = true;
+    }
 
     await existingOtp.save();
 
     throw new Error("Invalid OTP");
   }
 
-  // mark used
+  // valid otp
   existingOtp.isUsed = true;
 
   await existingOtp.save();

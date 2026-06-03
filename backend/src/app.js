@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./docs/swagger.js";
 import corsOptions from "./configs/cors.js";
 import cookieParser from "cookie-parser";
 import sessionMiddleware from "./middlewares/session.middleware.js";
@@ -17,7 +19,9 @@ app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 // SECURITY HEADERS
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy:false
+}));
 
 // USE SHARED CORS CONFIG
 app.use(cors(corsOptions));
@@ -41,6 +45,13 @@ import adminRoutes from "./routes/admin.routes.js";
 app.use("/api/auth", userRoutes);
 app.use("/api/oauth", oauthRoutes);
 app.use("/api/admin", adminRoutes);
+
+// Api documentation
+app.use(
+  "/api-docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec),
+);
 
 
 // 404 HANDLER

@@ -46,7 +46,7 @@ app.use("/api/auth", userRoutes);
 app.use("/api/oauth", oauthRoutes);
 app.use("/api/admin", adminRoutes);
 
-// Api documentation
+// Api documentation route
 app.use(
   "/api-docs",
   swaggerUi.serve,

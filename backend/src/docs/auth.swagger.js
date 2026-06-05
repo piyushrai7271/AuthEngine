@@ -176,7 +176,7 @@
  *         description: Account temporarily locked due to multiple failed login attempts
  */
 
-// Refresh access Token
+// Refresh access Token...........
 
 /**
  * @swagger
@@ -218,7 +218,7 @@
  *         description: User not found
  */
 
-// Get user data
+// Get user data......
 
 /**
  * @swagger
@@ -275,4 +275,154 @@
  *                       example: user
  *       401:
  *         description: Unauthorized
+ */
+
+// logout ...
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     tags:
+ *       - Core Authentication
+ *     summary: Logout current device
+ *     description: Logs out the currently authenticated user from the current device. Requires a valid access token.
+ *
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 statusCode:
+ *                   type: number
+ *                   example: 200
+ *
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *
+ *                 message:
+ *                   type: string
+ *                   example: Logged out from current device
+ *
+ *                 data:
+ *                   type: object
+ *                   example: {}
+ *
+ *       400:
+ *         description: No refresh token provided
+ *
+ *       404:
+ *         description: Session not found
+ */
+
+// logout All..........
+
+/**
+ * @swagger
+ * /api/auth/logout-all:
+ *   post:
+ *     tags:
+ *       - Core Authentication
+ *     summary: Logout from all devices
+ *     description: Logs out the currently authenticated user from all active devices by invalidating all sessions. Requires a valid access token.
+ *
+ *     responses:
+ *       200:
+ *         description: Logged out from all devices successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 statusCode:
+ *                   type: number
+ *                   example: 200
+ *
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *
+ *                 message:
+ *                   type: string
+ *                   example: Logged out from all devices
+ *
+ *                 data:
+ *                   type: object
+ *                   example: {}
+ *
+ *       401:
+ *         description: Unauthorized
+ */
+
+
+// change Password ......
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   post:
+ *     tags:
+ *       - Core Authentication
+ *     summary: Change password
+ *     description: Changes the password of the currently authenticated user. Requires a valid access token. All active sessions are invalidated after a successful password change and the user must login again.
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 example: Password@123
+ *
+ *               newPassword:
+ *                 type: string
+ *                 example: NewPassword@123
+ *
+ *               confirmPassword:
+ *                 type: string
+ *                 example: NewPassword@123
+ *
+ *     responses:
+ *       200:
+ *         description: Password changed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 statusCode:
+ *                   type: number
+ *                   example: 200
+ *
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *
+ *                 message:
+ *                   type: string
+ *                   example: Password changed successfully. Please login again.
+ *
+ *                 data:
+ *                   type: object
+ *                   example: {}
+ *
+ *       400:
+ *         description: Validation error or new password matches current password
+ *
+ *       401:
+ *         description: Current password is incorrect
+ *
+ *       404:
+ *         description: User not found
  */
